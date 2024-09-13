@@ -7,6 +7,134 @@ from pydub import AudioSegment
 
 import Text_GUI ## opens new GUI
 
+def combine_text_files(folder_path, output_file_name):
+
+    output_file = os.path.join(folder_path, output_file_name + ".txt")
+    
+    recorded = []
+
+    iterations = -1
+
+    with open(output_file, 'w') as outfile:
+
+        while len(recorded) < len([f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]) -1:
+            
+            iterations += 1
+
+            print(len(recorded), len(os.listdir(folder_path)))
+
+            for filename in os.listdir(folder_path):
+                
+                print(len(str(iterations)))
+
+                string_iterations = ""
+
+                if len(str(iterations)) == 1:
+
+                    string_iterations = "0" + str(iterations)
+
+                else:
+
+                    string_iterations = str(iterations)
+
+                if filename.endswith(".txt") and ((string_iterations) + " - ") in filename and filename not in recorded: 
+
+                    print("Combining: ", filename)
+
+                    recorded.append(filename)
+
+                    file_path = os.path.join(folder_path, filename)
+
+                    with open(file_path, 'r') as infile:
+
+                        outfile.write(infile.read())
+                        outfile.write("\n")  
+
+## combine_text_files("C:\\Users\\CMP_OwDiBacco\\Downloads\\MP4-Text\\Txt\\03 - Browsing History", "All")
+
+def write_text(text, folders, filename):
+
+    print(filename, " Text Created")
+
+    file_path = os.path.join(txt_folder, folders)
+
+    os.makedirs(file_path, exist_ok=True)
+
+    txt_file = open(file_path + "\\" + filename + ".txt", "w")
+
+    txt_file.write(text)
+
+    txt_file.close()
+
+    return file_path
+
+def convert_wav_to_text(filename, output_wav_path):
+    
+    recognizer = sr.Recognizer()
+
+    try:
+
+        with sr.AudioFile(output_wav_path) as source:
+
+            audio = recognizer.record(source)
+
+            length = sf.SoundFile(output_wav_path)
+
+            seconds = length.frames / length.samplerate
+
+            split = False
+
+            if seconds > 350:
+
+                split = True
+
+            text = ""
+
+            if not split:
+
+                text = recognizer.recognize_google(audio)
+
+            else:
+
+                for wav in os.listdir(split_output_folder):
+
+                    output_wav_path = os.path.join(split_output_folder, wav)
+
+                    with sr.AudioFile(output_wav_path) as source:
+
+                        audio = recognizer.record(source)
+
+                        t = recognizer.recognize_google(audio)
+
+                        text += t + " "
+
+    except:
+
+        print("Error Converting ", output_wav_path, ": ", Exception)
+
+    return text
+
+def convert_mp4_to_wav(file_path, folders):
+
+    filename = os.path.splitext(os.path.basename(file_path))[0]
+
+    video = mp.VideoFileClip(file_path)
+    
+    output_wav_path = os.path.join(wav_path, folders)
+    
+    os.makedirs(output_wav_path, exist_ok=True)
+    
+    output_wav_path = os.path.join(output_wav_path, filename + '.wav')
+    
+    print("Output WAV Path: ", output_wav_path)
+    
+    video.audio.write_audiofile(output_wav_path)
+    
+    print("WAV Created: ", output_wav_path)
+    
+    return filename, output_wav_path
+
+
 def split_wav(path, seconds, arr, output_folder, name):
 
     if not os.path.exists(output_folder):
@@ -36,6 +164,71 @@ def split_wav(path, seconds, arr, output_folder, name):
             segment.export(segment_path, format="wav")
 
     return arr
+
+
+def loop_through_directory(extracted_files, extract_path, folders, original_path):
+
+    global reset_extract_path
+
+    print("reset path? ", reset_extract_path)
+
+    print("original_path: ", original_path)
+
+    print("extract path: ", extract_path)
+
+    for content in extracted_files:
+
+        print("content: ", content)
+
+        file_path = os.path.join(extract_path, content)
+
+        print("file_path: ", file_path)
+
+        if '.mp4' in content[-4:]:
+            
+            print("Starting: ", content)
+            
+            filename, wav = convert_mp4_to_wav(file_path, folders) # returns the filename and wav
+
+            print("filename: ", filename)
+
+            write_text(convert_wav_to_text(filename, wav), folders, filename)
+
+        elif os.path.isdir(file_path):
+            
+            foldername = os.path.splitext(content)[0]
+
+            print("Opening: ", foldername)
+
+            extracted_files = os.listdir(file_path)
+
+            print("Files in Folder ", foldername, ": ", extracted_files)
+
+            extract_path = file_path
+
+            folders = os.path.join(folders, content)
+
+            print("Folders: ", folders)
+
+            loop_through_directory(extracted_files, extract_path, folders, original_path)
+
+            extract_path = original_path
+            
+            folders = ""
+
+            print("extract_path: ", extract_path)
+
+    print("Completed") # nice
+
+    txt_directory = os.path.join(txt_folder, folders)
+
+    combine_text_files(txt_directory, "All")
+
+    ## extract_path = extract_to_path 
+
+    reset_extract_path = True
+
+    print("extract_path: ", extract_path)
 
 def delete_files(directory_path, keep): # not currently used 
 
@@ -75,7 +268,11 @@ def delete_files(directory_path, keep): # not currently used
 
         print(f"{keep}: {e}")
 
-# automatically creates Convert folder
+# automatically creates Convert folder for this program
+
+# Declare paths v
+
+reset_extract_path = False
 
 root_path = Text_GUI.root_path
 
@@ -93,21 +290,27 @@ if Text_GUI.clicked:
 
 zip_file_path = f"{zip_file}"
 
-extract_to_path = f"{root_path}\\MP4-Text\\Converting\\MP4"
+extract_to_path = f"{root_path}\\MP4"
 
-wav_path = f"{root_path}\\MP4-Text\\Converting\\Wav" # trying to delete
+wav_path = f"{root_path}\\Wav" # trying to delete
 
 if txt_folder[-1] != "\\":
 
-    txt_path = f"{txt_folder}\\"
+    txt_folder = f"{txt_folder}\\"
 
 else:
 
-    txt_path = f"{txt_folder}"
+    txt_folder = f"{txt_folder}"
 
-print("txt folder: ", txt_path)
+print("txt folder: ", txt_folder)
 
-split_output_folder = f"{root_path}MP4-Text\\Converting\\Split" # trying to delete
+txt_path = txt_folder.split("\\")
+
+print(txt_path)
+
+split_output_folder = f"{root_path}\\Wav\\Split" # trying to delete
+
+# Declare paths ^
 
 def main():
 
@@ -117,100 +320,17 @@ def main():
     if not os.path.exists(wav_path):
         os.makedirs(wav_path)
 
-    if not os.path.exists(txt_path):
-        os.makedirs(txt_path)
+    if not os.path.exists(txt_folder):
+        os.makedirs(txt_folder)
 
-    ## delete_files(extract_to_path, None)
-    ## 
-    ## delete_files(wav_path, None)
-
+    # Extract Zip File 
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
 
         zip_ref.extractall(extract_to_path)
 
     extracted_files = os.listdir(extract_to_path)
 
-    recognizer = sr.Recognizer()
-
-    # extract zip
-
-    for content in extracted_files:
-
-        # delete_files(wav_path, content)
-
-        print("Extracting: ", content)
-
-        file_path = os.path.join(extract_to_path, content)
-
-        # convert single file to wav
-
-        if content.endswith('.mp4'):
-
-            filename = os.path.splitext(content)[0]
-
-            video = mp.VideoFileClip(file_path)
-
-            output_wav_path = os.path.join(wav_path, filename + ".wav")
-
-            video.audio.write_audiofile(output_wav_path)
-
-            print("Wav Created: ", output_wav_path)
-
-            # os.remove(file_path) # remove mp4
-
-            # converts same wav to text
-
-            try:
-
-                with sr.AudioFile(output_wav_path) as source:
-
-                    audio = recognizer.record(source)
-
-                    length = sf.SoundFile(output_wav_path)
-
-                    seconds = length.frames / length.samplerate
-
-                    split = False
-
-                    if seconds > 350:
-
-                        split = True
-
-                        multi_wav = split_wav(output_wav_path, seconds, [], split_output_folder, filename)
-
-                    text = ""
-
-                    if not split:
-
-                        text = recognizer.recognize_google(audio)
-
-                    else:
-
-                        for wav in os.listdir(split_output_folder):
-
-                            output_wav_path = os.path.join(split_output_folder, wav)
-
-                            with sr.AudioFile(output_wav_path) as source:
-
-                                audio = recognizer.record(source)
-
-                                t = recognizer.recognize_google(audio)
-
-                                text += t + " "
-
-                    # writes text
-
-                    print(filename, " Text Created")
-
-                    txt_file = open(txt_path + "\\" + filename + ".txt", "w")
-
-                    txt_file.write(text)
-
-                    txt_file.close()
-
-            except:
-
-                print("Error Converting ", output_wav_path, ": ", Exception)
+    loop_through_directory(extracted_files, extract_to_path, "", extract_to_path)
 
 if __name__ == '__main__':
 

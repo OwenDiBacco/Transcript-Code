@@ -3,17 +3,24 @@ from tkinter import *
 from tkinter.ttk import *
 from tkinter import filedialog
 
+import os
+
+# slashes are backward when opened with filedialog
+
 def open_root():
 
     global root_path
 
     root_path = filedialog.askdirectory(title="Open Root Path")
 
-    label = tk.Label(root, text="Root Path: " + str(root_path))
+    path = os.path.normpath(root_path) 
 
+    label = tk.Label(root, text="Root Path: " + path)
     label.pack()
 
-    print("root path: ", root_path)
+    print("root path: ", path)
+
+    root_path = path
 
 def open_zip():
 
@@ -23,11 +30,25 @@ def open_zip():
 
     zip_path = zip_path.name
 
-    label = tk.Label(root, text="Zip Path: " + str(zip_path))
+    zip_path = zip_path.split("/")
+
+    path = ""
+
+    for zip in zip_path:
+        
+        if zip[-1] == ":":
+
+            zip = zip + "\\"
+
+        path = os.path.join(path, zip)
+
+    label = tk.Label(root, text="Zip Path: " + str(path))
 
     label.pack()
 
-    print("zip path", zip_path)
+    print("zip path: ", path)
+
+    zip_path = path
 
 def open_txt(): 
 
@@ -35,23 +56,32 @@ def open_txt():
 
     txt_path = filedialog.askdirectory(title="Select txt Output")
 
+    txt_path = txt_path.split("/")
+
+    path = ""
+
+    for txt in txt_path:
+
+        path = os.path.join(path, zip)
+
     try:
 
-        label = tk.Label(root, text="Txt Path" + str(root_path) + "\\" + str(txt_path))
+        label = tk.Label(root, text="Txt Path" + str(root_path) + "\\" + str(path))
 
         label.pack()
 
-        print("txt path", str(root_path) + "\\" + str(txt_path))
+        print("txt path", str(root_path) + "\\" + str(path))
 
     except NameError:
         
-        label = tk.Label(root, text="Root Path Does Not Exist Yet\n[Root Path]\\" + str(txt_path))
+        label = tk.Label(root, text="Root Path Does Not Exist Yet\n[Root Path]\\" + str(path))
 
         label.pack()
 
-        print("Root Path Does Not Exist Yet\n[Root Path]\\", str(txt_path))
-    
+        print("Root Path Does Not Exist Yet\n[Root Path]\\", str(path))
 
+    txt_path = path
+    
 def close_app():
 
     root.destroy()
@@ -70,11 +100,11 @@ def on_default():
 
     txt_button.pack_forget()
 
-    txt_path = "MP4-Text\\Converting\\Txt"
+    txt_path = "\\Txt"
 
     try:
 
-        label = tk.Label(root, text="Txt Path" + str(root_path) + "\\" + str(txt_path))
+        label = tk.Label(root, text="Txt Path: " + str(root_path) + "\\" + str(txt_path))
 
         label.pack()
 
