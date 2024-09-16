@@ -4,6 +4,8 @@ import os
 import zipfile
 import soundfile as sf
 from pydub import AudioSegment
+import requests
+import msal
 
 import Text_GUI ## opens new GUI
 
@@ -21,11 +23,11 @@ def combine_text_files(folder_path, output_file_name):
             
             iterations += 1
 
-            print(len(recorded), len(os.listdir(folder_path)))
+            # print(len(recorded), len(os.listdir(folder_path)))
 
             for filename in os.listdir(folder_path):
                 
-                print(len(str(iterations)))
+                # print(len(str(iterations)))
 
                 string_iterations = ""
 
@@ -134,7 +136,6 @@ def convert_mp4_to_wav(file_path, folders):
     
     return filename, output_wav_path
 
-
 def split_wav(path, seconds, arr, output_folder, name):
 
     if not os.path.exists(output_folder):
@@ -230,43 +231,67 @@ def loop_through_directory(extracted_files, extract_path, folders, original_path
 
     print("extract_path: ", extract_path)
 
-def delete_files(directory_path, keep): # not currently used 
+def zip_output(text_folder, zip_file_name):
+    
+    downloads_folder = os.path.join(os.path.expanduser("~"), 'Downloads')
 
-    print("delete attempt")
+    zip_file_name = zip_file_name + "_Transcripts.zip"
 
-    try:
-        
-        if os.path.exists(directory_path):
-            
-            for filename in os.listdir(directory_path):
+    zip_file_path = os.path.join(downloads_folder, zip_file_name)
+    
+    with zipfile.ZipFile(zip_file_path, 'w') as zipf:
+        print("Creating Zip in Downloads: ", zip_file_path)
+
+        for foldername, subfolders, filenames in os.walk(text_folder):
+            for filename in filenames:
                 
-                if keep is not None:
+                file_path = os.path.join(foldername, filename)
 
-                    keep = directory_path + "\\" + keep
+                zipf.write(file_path, filename)
 
-                print("keep: ", keep)
+    return os.path.join(file_path, filename)
 
-                file_path = os.path.join(directory_path, filename)
-                
-                if file_path is not keep or keep is None:
+def get_access_token(client_id, authority, client_secret, scopes):
 
-                    if os.path.isfile(file_path):
+    app = msal.ConfidentialClientApplication(
+        client_id, authority=authority, client_credential=client_secret
+    )
 
-                        os.remove(file_path)  # Delete the file
+    result = app.acquire_token_for_client(scopes=scopes)
 
-                    elif os.path.isdir(file_path):
+    if "access_token" in result:
 
-                        print(f"Skipping directory: {file_path}")
+        return result["access_token"]
+    
+    else:
 
-            print("All files have been deleted.")
+        raise Exception("Could not obtain access token. Check credentials.")
 
-        else:
+# Function to upload a file to OneDrive
 
-            print(f"The directory {directory_path} does not exist.")
+def upload_file_to_onedrive(zip_file_path, access_token, file_name):
 
-    except Exception as e:
+    # URL to upload the file (OneDrive root or folder path)
 
-        print(f"{keep}: {e}")
+    upload_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/your_folder/{file_name}:/content"
+    
+    # Read the file data
+
+    with open(zip_file_path, 'rb') as file_data: # fix this line: zip_file?
+
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/zip',
+        }
+        response = requests.put(upload_url, headers=headers, data=file_data)
+
+    if response.status_code == 201:
+
+        print(f"File '{file_name}' uploaded successfully to OneDrive.")
+
+    else:
+
+        print(f"Failed to upload the file: {response.status_code}, {response.text}")
 
 # automatically creates Convert folder for this program
 
@@ -324,13 +349,38 @@ def main():
         os.makedirs(txt_folder)
 
     # Extract Zip File 
-    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
 
         zip_ref.extractall(extract_to_path)
 
     extracted_files = os.listdir(extract_to_path)
 
     loop_through_directory(extracted_files, extract_to_path, "", extract_to_path)
+
+    zip_file_name = os.path.splitext(os.path.basename(zip_file))[0]
+
+    output_zip_path = zip_output(txt_folder, zip_file_name)
+
+    # Upload To Outlook
+
+    client_id = "317264f1-552f-4612-a6ba-f1db8d74a872"
+    tenant_id = "e34fd78b-f48d-4235-9787-fef76723be14"
+    client_secret = "yTb8Q~XVAgzlQMXKA_~vXinFkhkPz.v1mNw2db9Y"
+
+    # value: yTb8Q~XVAgzlQMXKA_~vXinFkhkPz.v1mNw2db9Y
+    # ID: df681347-a3e4-41ca-bc58-fa8d1a3d62a7
+
+    authority = f"https://login.microsoftonline.com/{tenant_id}"
+    scopes = ["https://graph.microsoft.com/.default"]
+
+    # Path to your ZIP file
+    zip_file_path = output_zip_path
+
+    file_name = os.path.basename(zip_file_path)
+
+    token = get_access_token(client_id, authority, client_secret, scopes)
+
+    upload_file_to_onedrive(zip_file_path, token, file_name)
 
 if __name__ == '__main__':
 
