@@ -9,48 +9,72 @@ import msal
 
 import Text_GUI ## opens new GUI
 
+def contains_text_files(directory_path):
+    try:
+        
+        files = os.listdir(directory_path)
+        
+        
+        for file in files:
+
+            if file.lower().endswith('.txt'):
+
+                return True
+        
+        return False
+    
+    except FileNotFoundError:
+
+        return False
+    
+    except PermissionError:
+
+        return False
+
 def combine_text_files(folder_path, output_file_name):
 
-    output_file = os.path.join(folder_path, output_file_name + ".txt")
+    if contains_text_files(folder_path):
+
+        output_file = os.path.join(folder_path, output_file_name + ".txt")
     
-    recorded = []
+        recorded = []
 
-    iterations = -1
+        iterations = -1
 
-    with open(output_file, 'w') as outfile:
+        with open(output_file, 'w') as outfile:
 
-        while len(recorded) < len([f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]) -1:
-            
-            iterations += 1
+            while len(recorded) < len([f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]) -1:
 
-            # print(len(recorded), len(os.listdir(folder_path)))
+                iterations += 1
 
-            for filename in os.listdir(folder_path):
-                
-                # print(len(str(iterations)))
+                # print(len(recorded), len(os.listdir(folder_path)))
 
-                string_iterations = ""
+                for filename in os.listdir(folder_path):
 
-                if len(str(iterations)) == 1:
+                    # print(len(str(iterations)))
 
-                    string_iterations = "0" + str(iterations)
+                    string_iterations = ""
 
-                else:
+                    if len(str(iterations)) == 1:
 
-                    string_iterations = str(iterations)
+                        string_iterations = "0" + str(iterations)
 
-                if filename.endswith(".txt") and ((string_iterations) + " - ") in filename and filename not in recorded: 
+                    else:
 
-                    print("Combining: ", filename)
+                        string_iterations = str(iterations)
 
-                    recorded.append(filename)
+                    if filename.endswith(".txt") and ((string_iterations) + " - ") in filename and filename not in recorded: 
 
-                    file_path = os.path.join(folder_path, filename)
+                        print("Combining: ", filename)
 
-                    with open(file_path, 'r') as infile:
+                        recorded.append(filename)
 
-                        outfile.write(infile.read())
-                        outfile.write("\n")  
+                        file_path = os.path.join(folder_path, filename)
+
+                        with open(file_path, 'r') as infile:
+
+                            outfile.write(infile.read())
+                            outfile.write("\n")  
 
 ## combine_text_files("C:\\Users\\CMP_OwDiBacco\\Downloads\\MP4-Text\\Txt\\03 - Browsing History", "All")
 
@@ -243,13 +267,16 @@ def zip_output(text_folder, zip_file_name):
         print("Creating Zip in Downloads: ", zip_file_path)
 
         for foldername, subfolders, filenames in os.walk(text_folder):
+
             for filename in filenames:
-                
+
                 file_path = os.path.join(foldername, filename)
 
-                zipf.write(file_path, filename)
+                arcname = os.path.relpath(file_path, text_folder)
 
-    return os.path.join(file_path, filename)
+                zipf.write(file_path, arcname)
+
+    return zip_file_path
 
 def get_access_token(client_id, authority, client_secret, scopes):
 
@@ -270,28 +297,37 @@ def get_access_token(client_id, authority, client_secret, scopes):
 # Function to upload a file to OneDrive
 
 def upload_file_to_onedrive(zip_file_path, access_token, file_name):
-
-    # URL to upload the file (OneDrive root or folder path)
+    print("Uploading: ", zip_file_path)
 
     upload_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/your_folder/{file_name}:/content"
-    
-    # Read the file data
 
-    with open(zip_file_path, 'rb') as file_data: # fix this line: zip_file?
+    try:
 
-        headers = {
-            'Authorization': f'Bearer {access_token}',
-            'Content-Type': 'application/zip',
-        }
-        response = requests.put(upload_url, headers=headers, data=file_data)
+        with open(zip_file_path, 'rb') as file_data:
 
-    if response.status_code == 201:
+            headers = {
 
-        print(f"File '{file_name}' uploaded successfully to OneDrive.")
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/zip',
+            }
 
-    else:
+            response = requests.put(upload_url, headers=headers, data=file_data)
 
-        print(f"Failed to upload the file: {response.status_code}, {response.text}")
+            if response.status_code == 201:
+
+                print(f"File '{file_name}' uploaded successfully to OneDrive.")
+
+            else:
+
+                print(f"Failed to upload the file: {response.status_code}, {response.text}")
+
+    except FileNotFoundError:
+
+        print(f"File '{zip_file_path}' not found.")
+
+    except requests.RequestException as e:
+
+        print(f"An error occurred: {e}")
 
 # automatically creates Convert folder for this program
 
@@ -363,6 +399,8 @@ def main():
 
     # Upload To Outlook
 
+    '''
+
     client_id = "317264f1-552f-4612-a6ba-f1db8d74a872"
     tenant_id = "e34fd78b-f48d-4235-9787-fef76723be14"
     client_secret = "yTb8Q~XVAgzlQMXKA_~vXinFkhkPz.v1mNw2db9Y"
@@ -373,14 +411,16 @@ def main():
     authority = f"https://login.microsoftonline.com/{tenant_id}"
     scopes = ["https://graph.microsoft.com/.default"]
 
+    '''
+
     # Path to your ZIP file
     zip_file_path = output_zip_path
 
     file_name = os.path.basename(zip_file_path)
 
-    token = get_access_token(client_id, authority, client_secret, scopes)
+    ## token = get_access_token(client_id, authority, client_secret, scopes)
 
-    upload_file_to_onedrive(zip_file_path, token, file_name)
+    ## upload_file_to_onedrive(zip_file_path, token, file_name) ## i dont want to figure this out: BadRequest
 
 if __name__ == '__main__':
 
