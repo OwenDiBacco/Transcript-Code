@@ -35,7 +35,7 @@ pip install pydub<br>
 pip install requests<br>
 pip install msal<br>
 
-## How To Run The Application
+## How_To_Run_The_Application
 
 1. Run the MP4-Text.py file<br>
 2. Input the necessary file paths:<br>
@@ -47,7 +47,7 @@ pip install msal<br>
    e). If you would like to choose where the text files are output, select the 'Select Txt Folder' button. To use the defualt txt output path, select the 'Use Default Txt Output Folder' radio button.<br>
    f). When finished, select 'Run Application'<br>
 
-## When The Application Is Finished
+## When_The_Application_Is_Finished
 
 1. When this is completed, the completed zip file will appear in your downloads folder<br>
 2. Feel free to delete any of the added content to your root path, because they are no longer needed
