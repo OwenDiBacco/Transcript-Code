@@ -7,14 +7,14 @@ Each folder inside the output zip file will contain a text file named 'All.txt'.
 ## Table of Contents
 
 - [Installation](#installation)
-- [How To Run The Application](#How To Run The Application)
-- [When The Application Is Finished](#When The Application Is Finished)
+- [How_To_Run_The_Application](#How_To_Run_The_Application)
+- [When_The_Application_Is_Finished](#When_The_Application_Is_Finished)
 
 ## Installation
 
 1. Clone The Repository:
    
-  a). Go to your indended directory in your Command Prompt (ex. C)
+  a). Go to your indended directory in your Command Prompt (ex. cd Downloads/Transcript Code)
   b). Paste this command: git clone https://github.com//OwenDiBacco/Transcript-Code.git
 
 2. Make The Required Installations
