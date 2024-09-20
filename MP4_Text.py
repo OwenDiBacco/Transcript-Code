@@ -8,6 +8,7 @@ import requests
 import msal
 
 import Text_GUI ## opens new GUI
+import Progress_Bar
 
 def contains_text_files(directory_path):
     try:
@@ -86,11 +87,13 @@ def write_text(text, folders, filename):
 
     os.makedirs(file_path, exist_ok=True)
 
-    txt_file = open(file_path + "\\" + filename + ".txt", "w")
+    with open(os.path.join(file_path, filename + ".txt"), "w") as txt_file:
 
-    txt_file.write(text)
+        txt_file.write(text)
+    
+    print("Removing")
 
-    txt_file.close()
+    ## os.remove(file_path) # i dont freaking know
 
     return file_path
 
@@ -193,7 +196,7 @@ def split_wav(path, seconds, arr, output_folder, name):
 
 def loop_through_directory(extracted_files, extract_path, folders, original_path):
 
-    global reset_extract_path
+    global reset_extract_path, current_mp4, total_mp4s
 
     print("reset path? ", reset_extract_path)
 
@@ -210,6 +213,10 @@ def loop_through_directory(extracted_files, extract_path, folders, original_path
         print("file_path: ", file_path)
 
         if '.mp4' in content[-4:]:
+
+            current_mp4 += 1
+
+            Progress_Bar.app.update_progress(current_mp4, total_mp4s)
             
             print("Starting: ", content)
             
@@ -255,13 +262,32 @@ def loop_through_directory(extracted_files, extract_path, folders, original_path
 
     print("extract_path: ", extract_path)
 
+def find_total_files(folder):
+
+    mp4_count = 0
+
+    for item in os.listdir(folder):
+        
+        item_path = os.path.join(folder, item)
+        
+        if os.path.isdir(item_path):
+
+            mp4_count += find_total_files(item_path)
+        
+        elif item.endswith(".mp4"):
+
+            mp4_count += 1
+    
+    return mp4_count
+
+
 def zip_output(text_folder, zip_file_name):
     
-    downloads_folder = os.path.join(os.path.expanduser("~"), 'Downloads')
+    ## downloads_folder = os.path.join(os.path.expanduser("~"), 'Downloads')
 
     zip_file_name = zip_file_name + "_Transcripts.zip"
 
-    zip_file_path = os.path.join(downloads_folder, zip_file_name)
+    zip_file_path = os.path.join(txt_folder, zip_file_name)
     
     with zipfile.ZipFile(zip_file_path, 'w') as zipf:
         print("Creating Zip in Downloads: ", zip_file_path)
@@ -375,6 +401,8 @@ split_output_folder = f"{root_path}\\Wav\\Split" # trying to delete
 
 def main():
 
+    global current_mp4, total_mp4s
+
     if not os.path.exists(extract_to_path):
         os.makedirs(extract_to_path)
 
@@ -388,6 +416,9 @@ def main():
     with zipfile.ZipFile(zip_file, 'r') as zip_ref:
 
         zip_ref.extractall(extract_to_path)
+
+    current_mp4 = 0
+    total_mp4s = find_total_files(extract_to_path)
 
     extracted_files = os.listdir(extract_to_path)
 
