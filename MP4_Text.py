@@ -6,15 +6,33 @@ import soundfile as sf
 from pydub import AudioSegment
 import requests
 import msal
+import threading
+import uuid
+import asyncio
+
+from queue import Queue
 
 import Text_GUI ## opens new GUI
-import Progress_Bar
+from Progress_Bar import * 
+
+def updated_bar(current, end):
+
+    global root
+
+    app.update_progress(current, end)
+
+    root.update_idletasks()            
+    
+    root.mainloop()
+
+def run_async(current, end):
+    
+    asyncio.run(updated_bar(current, end))
 
 def contains_text_files(directory_path):
     try:
         
         files = os.listdir(directory_path)
-        
         
         for file in files:
 
@@ -98,12 +116,18 @@ def write_text(text, folders, filename):
     return file_path
 
 def convert_wav_to_text(filename, output_wav_path):
+
+    global split_output_folder, split_count
     
     recognizer = sr.Recognizer()
-
+    
+    text = ''
+    
     try:
 
         with sr.AudioFile(output_wav_path) as source:
+
+            print("Converting: ", source)
 
             audio = recognizer.record(source)
 
@@ -111,23 +135,48 @@ def convert_wav_to_text(filename, output_wav_path):
 
             seconds = length.frames / length.samplerate
 
-            split = False
+            print("Second: ", seconds)
 
-            if seconds > 350:
+            text = recognizer.recognize_google(audio)
 
-                split = True
+    except:
+        
+        if True:
 
-            text = ""
+            pass
 
-            if not split:
+        else:
 
-                text = recognizer.recognize_google(audio)
+            pass
+        
 
-            else:
+        print("Error Converting ", output_wav_path, ": ", Exception)
 
-                for wav in os.listdir(split_output_folder):
+        split_folder = os.path.join(split_output_folder, filename)
 
-                    output_wav_path = os.path.join(split_output_folder, wav)
+        os.makedirs(split_folder, exist_ok=True)
+
+        split_count = 0
+
+        max_iter = split_wav(output_wav_path, seconds, [], split_folder, filename)
+
+        print("Max Iteration: ", max_iter)
+
+        current = 0
+
+        print("Current: ", current, " Max Iter Expoent: ", max_iter ** 2)
+
+        while current < max_iter ** 2:
+
+            for wav in os.listdir(split_folder):
+
+                output_wav_path = os.path.join(split_folder, wav)
+
+                if output_wav_path.lower().endswith('.wav') and wav[0] == str(max_iter) and wav[3] == str(current):
+
+                    current += 1
+
+                    print("Working on: ", output_wav_path)
 
                     with sr.AudioFile(output_wav_path) as source:
 
@@ -135,11 +184,9 @@ def convert_wav_to_text(filename, output_wav_path):
 
                         t = recognizer.recognize_google(audio)
 
+                        print(t)
+
                         text += t + " "
-
-    except:
-
-        print("Error Converting ", output_wav_path, ": ", Exception)
 
     return text
 
@@ -163,40 +210,57 @@ def convert_mp4_to_wav(file_path, folders):
     
     return filename, output_wav_path
 
-def split_wav(path, seconds, arr, output_folder, name):
 
-    if not os.path.exists(output_folder):
+def split_wav(wav_path, seconds, arr, output_folder, name, split_iterations=0):
 
-        os.makedirs(output_folder)
+    global split_count
 
-    if seconds > 350:
+    if seconds < 350:
 
-        a = AudioSegment.from_wav(path)
+        arr.append([wav_path])
+        return 0
 
-        split_time = seconds / 2 * 1000
+    a = AudioSegment.from_wav(wav_path)
 
-        segmentUno = a[:split_time]
-        segmentDos = a[split_time:]
+    print("ID: ", name, " Created")
 
-        arr.append(segmentUno)
-        arr.append(segmentDos)
+    split_time = seconds / 2 * 1000
+    
+    segmentUno = a[:split_time]
+    segmentDos = a[split_time:]
+    
+    wav_uno_path = os.path.join(output_folder, f"{split_iterations}_{split_count}. {uuid.uuid4()}_segment_1_uno.wav")
+    wav_dos_path = os.path.join(output_folder, f"{split_iterations}_{split_count +1}. {uuid.uuid4()}_segment_1_dos.wav")
+    
+    segmentUno.export(wav_uno_path, format="wav")
+    segmentDos.export(wav_dos_path, format="wav")
+    
+    max_iter = split_wav(wav_uno_path, len(segmentUno) / 1000, arr, output_folder, name, split_iterations + 1)
+    split_wav(wav_dos_path, len(segmentDos) / 1000, arr, output_folder, name, split_iterations + 1)
 
-        split_wav(None, len(segmentUno) / 1000, arr, output_folder, name)
-        split_wav(None, len(segmentDos) / 1000, arr, output_folder, name)
+    split_count += 2
 
-    else:
+    print(f"Split iteration {split_iterations} done for: {wav_path}")
 
-        for i, segment in enumerate(arr):
+    return max(max_iter, split_iterations)
+ 
 
-            segment_path = os.path.join(output_folder, f"{name} segment_{i+1}.wav")
-            segment.export(segment_path, format="wav")
+def check_queue():
+    try:
+        
+        run_async(current_mp4, total_mp4s)
 
-    return arr
+    except Exception:
 
+        pass 
 
-def loop_through_directory(extracted_files, extract_path, folders, original_path):
+    root.after(100, check_queue)
+
+def loop_through_directory(queue ,extracted_files, extract_path, folders, original_path):
 
     global reset_extract_path, current_mp4, total_mp4s
+
+    queue.put("In Queue")
 
     print("reset path? ", reset_extract_path)
 
@@ -214,10 +278,14 @@ def loop_through_directory(extracted_files, extract_path, folders, original_path
 
         if '.mp4' in content[-4:]:
 
+            ## check_queue()
+
             current_mp4 += 1
 
-            Progress_Bar.app.update_progress(current_mp4, total_mp4s)
-            
+            ## asyncio.run(updated_bar(current_mp4, total_mp4s))
+
+            # root.after(0, run_async(current_mp4, total_mp4s))
+
             print("Starting: ", content)
             
             filename, wav = convert_mp4_to_wav(file_path, folders) # returns the filename and wav
@@ -242,7 +310,7 @@ def loop_through_directory(extracted_files, extract_path, folders, original_path
 
             print("Folders: ", folders)
 
-            loop_through_directory(extracted_files, extract_path, folders, original_path)
+            loop_through_directory(queue, extracted_files, extract_path, folders, original_path)
 
             extract_path = original_path
             
@@ -395,64 +463,55 @@ txt_path = txt_folder.split("\\")
 
 print(txt_path)
 
-split_output_folder = f"{root_path}\\Wav\\Split" # trying to delete
+split_output_folder = f"{root_path}\\Wav\\Split\\" # trying to delete
 
 # Declare paths ^
 
-def main():
+if not os.path.exists(extract_to_path):
+    os.makedirs(extract_to_path)
 
-    global current_mp4, total_mp4s
+if not os.path.exists(wav_path):
+    os.makedirs(wav_path)
 
-    if not os.path.exists(extract_to_path):
-        os.makedirs(extract_to_path)
+if not os.path.exists(split_output_folder):
+    os.makedirs(split_output_folder)
 
-    if not os.path.exists(wav_path):
-        os.makedirs(wav_path)
+if not os.path.exists(txt_folder):
+    os.makedirs(txt_folder)
 
-    if not os.path.exists(txt_folder):
-        os.makedirs(txt_folder)
+# Extract Zip File 
 
-    # Extract Zip File 
-    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+    zip_ref.extractall(extract_to_path)
 
-        zip_ref.extractall(extract_to_path)
+root = tk.Tk()
 
-    current_mp4 = 0
-    total_mp4s = find_total_files(extract_to_path)
+app = ProgressBarApp(root)
 
-    extracted_files = os.listdir(extract_to_path)
+current_mp4 = 0
 
-    loop_through_directory(extracted_files, extract_to_path, "", extract_to_path)
+total_mp4s = find_total_files(extract_to_path)
 
-    zip_file_name = os.path.splitext(os.path.basename(zip_file))[0]
+extracted_files = os.listdir(extract_to_path)
 
-    output_zip_path = zip_output(txt_folder, zip_file_name)
+queue = Queue()
 
-    # Upload To Outlook
+# thread = threading.Thread(target=loop_through_directory, args=(queue, extracted_files, extract_to_path, "", extract_to_path))
+# thread.start()
 
-    '''
+split_count = 0
 
-    client_id = "317264f1-552f-4612-a6ba-f1db8d74a872"
-    tenant_id = "e34fd78b-f48d-4235-9787-fef76723be14"
-    client_secret = "yTb8Q~XVAgzlQMXKA_~vXinFkhkPz.v1mNw2db9Y"
+loop_through_directory(queue, extracted_files, extract_to_path, "", extract_to_path)
 
-    # value: yTb8Q~XVAgzlQMXKA_~vXinFkhkPz.v1mNw2db9Y
-    # ID: df681347-a3e4-41ca-bc58-fa8d1a3d62a7
+# check_queue()
 
-    authority = f"https://login.microsoftonline.com/{tenant_id}"
-    scopes = ["https://graph.microsoft.com/.default"]
+zip_file_name = os.path.splitext(os.path.basename(zip_file))[0]
 
-    '''
+output_zip_path = zip_output(txt_folder, zip_file_name)
 
-    # Path to your ZIP file
-    zip_file_path = output_zip_path
+zip_file_path = output_zip_path
 
-    file_name = os.path.basename(zip_file_path)
+file_name = os.path.basename(zip_file_path)
 
-    ## token = get_access_token(client_id, authority, client_secret, scopes)
-
-    ## upload_file_to_onedrive(zip_file_path, token, file_name) ## i dont want to figure this out: BadRequest
-
-if __name__ == '__main__':
-
-    main()
+## token = get_access_token(client_id, authority, client_secret, scopes)
+## upload_file_to_onedrive(zip_file_path, token, file_name) ## i dont want to figure this out: BadRequest

@@ -62,7 +62,7 @@ def open_txt():
 
     for txt in txt_path:
 
-        path = os.path.join(path, zip)
+        path = os.path.join(path, txt)
 
     try:
 

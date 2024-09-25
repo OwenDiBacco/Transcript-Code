@@ -10,18 +10,22 @@ class ProgressBarApp:
 
     def update_progress(self, current, end):
 
-        if current < end:
+        if current <= end:
+
+            print(current, "/", end)
 
             self.progress["maximum"] = end
             self.progress["value"] = current
+
+            self.root.after(100, )
+
         
         else:
 
-            root.destroy()
+            self.root.destroy()
 
-if __name__ == "__main__":
+    def close(self):
 
-    global app
+        self.root.destroy()
 
-    root = tk.Tk()
-    app = ProgressBarApp(root)
+
