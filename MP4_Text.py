@@ -11,6 +11,7 @@ import uuid
 import asyncio
 
 from queue import Queue
+from pydub.silence import split_on_silence
 
 import Text_GUI ## opens new GUI
 from Progress_Bar import * 
@@ -62,7 +63,22 @@ def combine_text_files(folder_path, output_file_name):
 
         with open(output_file, 'w') as outfile:
 
-            while len(recorded) < len([f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]) -1:
+            print("Opening: ", output_file)
+            
+            # len([f for f in  if  -1 # os.path.isfile(os.path.join(folder_path, f))])
+
+            number_of_files = 0
+
+            for file in os.listdir(folder_path):
+
+                if file.endswith('.txt'):
+
+                    number_of_files += 1
+
+            while len(recorded) < number_of_files -1:
+                
+                print("Files #: ", number_of_files)
+                print("Recorded: ", recorded, " Iterations ", iterations)
 
                 iterations += 1
 
@@ -70,11 +86,13 @@ def combine_text_files(folder_path, output_file_name):
 
                 for filename in os.listdir(folder_path):
 
+                    print("Working on: ", filename)
+
                     # print(len(str(iterations)))
 
                     string_iterations = ""
 
-                    if len(str(iterations)) == 1:
+                    if iterations < 10:
 
                         string_iterations = "0" + str(iterations)
 
@@ -82,7 +100,7 @@ def combine_text_files(folder_path, output_file_name):
 
                         string_iterations = str(iterations)
 
-                    if filename.endswith(".txt") and ((string_iterations) + " - ") in filename and filename not in recorded: 
+                    if filename.endswith(".txt") and ((string_iterations)) in filename and filename not in recorded: 
 
                         print("Combining: ", filename)
 
@@ -95,7 +113,7 @@ def combine_text_files(folder_path, output_file_name):
                             outfile.write(infile.read())
                             outfile.write("\n")  
 
-## combine_text_files("C:\\Users\\CMP_OwDiBacco\\Downloads\\MP4-Text\\Txt\\03 - Browsing History", "All")
+# combine_text_files("C:\\Users\\CMP_OwDiBacco\\Downloads\\MP4-Text\\Txt", "All")
 
 def write_text(text, folders, filename):
 
@@ -143,50 +161,50 @@ def convert_wav_to_text(filename, output_wav_path):
         
         if True:
 
-            pass
+            split_folder = os.path.join(split_output_folder, filename)
+            
+            text = split_and_convert_wav(output_wav_path, split_folder, filename)
 
         else:
 
-            pass
-        
 
-        print("Error Converting ", output_wav_path, ": ", Exception)
+            print("Error Converting ", output_wav_path, ": ", Exception)
 
-        split_folder = os.path.join(split_output_folder, filename)
+            split_folder = os.path.join(split_output_folder, filename)
 
-        os.makedirs(split_folder, exist_ok=True)
+            os.makedirs(split_folder, exist_ok=True)
 
-        split_count = 0
+            split_count = 0
 
-        max_iter = split_wav(output_wav_path, seconds, [], split_folder, filename)
+            max_iter = split_wav(output_wav_path, seconds, [], split_folder, filename)
 
-        print("Max Iteration: ", max_iter)
+            print("Max Iteration: ", max_iter)
 
-        current = 0
+            current = 0
 
-        print("Current: ", current, " Max Iter Expoent: ", max_iter ** 2)
+            print("Current: ", current, " Max Iter Expoent: ", max_iter ** 2)
 
-        while current < max_iter ** 2:
+            while current < max_iter ** 2:
 
-            for wav in os.listdir(split_folder):
+                for wav in os.listdir(split_folder):
 
-                output_wav_path = os.path.join(split_folder, wav)
+                    output_wav_path = os.path.join(split_folder, wav)
 
-                if output_wav_path.lower().endswith('.wav') and wav[0] == str(max_iter) and wav[3] == str(current):
+                    if output_wav_path.lower().endswith('.wav') and wav[0] == str(max_iter) and wav[3] == str(current):
 
-                    current += 1
+                        current += 1
 
-                    print("Working on: ", output_wav_path)
+                        print("Working on: ", output_wav_path)
 
-                    with sr.AudioFile(output_wav_path) as source:
+                        with sr.AudioFile(output_wav_path) as source:
 
-                        audio = recognizer.record(source)
+                            audio = recognizer.record(source)
 
-                        t = recognizer.recognize_google(audio)
+                            t = recognizer.recognize_google(audio)
 
-                        print(t)
+                            print(t)
 
-                        text += t + " "
+                            text += t + " "
 
     return text
 
@@ -210,6 +228,53 @@ def convert_mp4_to_wav(file_path, folders):
     
     return filename, output_wav_path
 
+
+def split_and_convert_wav(wav_path, split_path, filename):
+
+    chunk_text = []
+
+    audio = AudioSegment.from_wav(wav_path)
+
+    chunks = split_on_silence(audio, min_silence_len=500, silence_thresh=-40)
+
+    print("Chunks: ", chunks)
+
+    recognizer = sr.Recognizer()
+
+    split_path = os.path.join(split_path)
+
+    split_path = os.path.join(split_path, filename)
+
+    os.makedirs(split_path, exist_ok=True)
+
+    for i, chunk in enumerate(chunks):
+
+        full_wav_path = os.path.join(split_path, f"chunk{i+1}.wav")
+
+        chunk.export(full_wav_path, format="wav")
+
+        ## print("Working on wav: ", f"chunk{i+1}.wav", " Length: ", len(chunk) / 1000)
+
+        if len(chunk) > 0: # not empty
+    
+            with sr.AudioFile(full_wav_path) as source:
+
+                audio_chunk = recognizer.record(source)
+
+                try:
+
+                    text = recognizer.recognize_google(audio_chunk)
+
+                    chunk_text.append(text)
+
+                    ## print("Completed")
+
+                except: # sr.UnknownValueError: # no sound 
+                    
+                    pass
+
+    final_text = ''.join(chunk_text)
+    return final_text
 
 def split_wav(wav_path, seconds, arr, output_folder, name, split_iterations=0):
 

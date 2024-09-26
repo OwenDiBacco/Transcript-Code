@@ -28,4 +28,10 @@ class ProgressBarApp:
 
         self.root.destroy()
 
+root = tk.Tk()
+root.title("My Tkinter Window")
+
+app = ProgressBarApp(root)
+app.update_progress(1, 5)
+root.mainloop()
 
