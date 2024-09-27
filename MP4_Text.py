@@ -14,21 +14,44 @@ from queue import Queue
 from pydub.silence import split_on_silence
 
 import Text_GUI ## opens new GUI
-from Progress_Bar import * 
+import tkinter as tk
+from tkinter import ttk
+import threading
+import time
 
-def updated_bar(current, end):
+class ProgressBarApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Progress Bar Example")
+        self.progress = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
+        self.progress.pack(pady=20)
 
-    global root
+    def update_progress(self, current, end):
+        if current <= end:
+            # print(current, "/", end)
+            self.progress["maximum"] = end
+            self.progress["value"] = current
+        else:
+            self.close()
 
+    def close(self):
+        self.root.destroy()
+
+def update_bar_in_main_thread(app, current, end):
     app.update_progress(current, end)
 
-    root.update_idletasks()            
+def thread_function(app, root, total_steps):
+    while current_mp4 < total_steps: 
+    # for i in range(total_steps + 1):
+        root.after(0, update_bar_in_main_thread, app, current_mp4, total_steps) 
+        
+        # time.sleep(0.5)  
     
-    root.mainloop()
 
-def run_async(current, end):
+def start_thread(app, root, total_mp4s):
     
-    asyncio.run(updated_bar(current, end))
+    threading.Thread(target=thread_function, args=(app, root, total_mp4s)).start()
+
 
 def contains_text_files(directory_path):
     try:
@@ -566,7 +589,13 @@ queue = Queue()
 
 split_count = 0
 
-loop_through_directory(queue, extracted_files, extract_to_path, "", extract_to_path)
+## bar_thread = threading.Thread(target=updated_bar, args=(current_mp4, total_mp4s))
+convert_thread = threading.Thread(target=loop_through_directory, args=(queue, extracted_files, extract_to_path, "", extract_to_path))
+
+## bar_thread.start()
+convert_thread.start()
+start_thread(app, root, total_mp4s)
+root.mainloop()
 
 # check_queue()
 
@@ -577,6 +606,9 @@ output_zip_path = zip_output(txt_folder, zip_file_name)
 zip_file_path = output_zip_path
 
 file_name = os.path.basename(zip_file_path)
+
+## bar_thread.join()
+## convert_thread.join()
 
 ## token = get_access_token(client_id, authority, client_secret, scopes)
 ## upload_file_to_onedrive(zip_file_path, token, file_name) ## i dont want to figure this out: BadRequest
