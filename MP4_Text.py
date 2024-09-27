@@ -22,6 +22,8 @@ import time
 class ProgressBarApp:
     def __init__(self, root):
         self.root = root
+        self.root.title("Progress Bar")
+
         self.root.title("Progress Bar Example")
         self.progress = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
         self.progress.pack(pady=20)
@@ -43,9 +45,13 @@ def update_bar_in_main_thread(app, current, end):
 def thread_function(app, root, total_steps):
     while current_mp4 < total_steps: 
     # for i in range(total_steps + 1):
-        root.after(0, update_bar_in_main_thread, app, current_mp4, total_steps) 
+
+        root.after(0, update_bar_in_main_thread, app, current_mp4 , total_steps) 
         
         # time.sleep(0.5)  
+
+    update_bar_in_main_thread(app, 1, 1)
+    root.destroy()
     
 
 def start_thread(app, root, total_mp4s):
@@ -140,6 +146,12 @@ def combine_text_files(folder_path, output_file_name):
 
 def write_text(text, folders, filename):
 
+    # step
+
+    global current_mp4
+
+    current_mp4 += 1
+
     print(filename, " Text Created")
 
     file_path = os.path.join(txt_folder, folders)
@@ -157,6 +169,12 @@ def write_text(text, folders, filename):
     return file_path
 
 def convert_wav_to_text(filename, output_wav_path):
+
+    # step
+
+    global current_mp4
+
+    current_mp4 += 1
 
     global split_output_folder, split_count
     
@@ -232,6 +250,12 @@ def convert_wav_to_text(filename, output_wav_path):
     return text
 
 def convert_mp4_to_wav(file_path, folders):
+
+    # step
+
+    global current_mp4
+
+    current_mp4 += 1
 
     filename = os.path.splitext(os.path.basename(file_path))[0]
 
@@ -332,19 +356,9 @@ def split_wav(wav_path, seconds, arr, output_folder, name, split_iterations=0):
 
     return max(max_iter, split_iterations)
  
-
-def check_queue():
-    try:
-        
-        run_async(current_mp4, total_mp4s)
-
-    except Exception:
-
-        pass 
-
-    root.after(100, check_queue)
-
 def loop_through_directory(queue ,extracted_files, extract_path, folders, original_path):
+
+    # step
 
     global reset_extract_path, current_mp4, total_mp4s
 
@@ -368,7 +382,7 @@ def loop_through_directory(queue ,extracted_files, extract_path, folders, origin
 
             ## check_queue()
 
-            current_mp4 += 1
+            current_mp4 += 1 # step here
 
             ## asyncio.run(updated_bar(current_mp4, total_mp4s))
 
@@ -434,7 +448,7 @@ def find_total_files(folder):
 
             mp4_count += 1
     
-    return mp4_count
+    return mp4_count * 4
 
 
 def zip_output(text_folder, zip_file_name):
@@ -599,6 +613,8 @@ root.mainloop()
 
 # check_queue()
 
+print("Creating Zip File...")
+
 zip_file_name = os.path.splitext(os.path.basename(zip_file))[0]
 
 output_zip_path = zip_output(txt_folder, zip_file_name)
@@ -606,6 +622,27 @@ output_zip_path = zip_output(txt_folder, zip_file_name)
 zip_file_path = output_zip_path
 
 file_name = os.path.basename(zip_file_path)
+
+print("Zip File: ", file_name, " Created")
+
+print("Trying to Delete: ", "C:\\Users\\CMP_OwDiBacco\\Downloads\\MP4-Text\\MP4")
+
+if os.path.exists("C:\\Users\\CMP_OwDiBacco\\Downloads\\MP4-Text\\MP4"):
+
+    try:
+
+        os.remove("C:\\Users\\CMP_OwDiBacco\\Downloads\\MP4-Text\\MP4") # file still in use
+        print("Deleted: ", "C:\\Users\\CMP_OwDiBacco\\Downloads\\MP4-Text\\MP4")
+
+    except:
+
+        print(Exception) 
+
+else:
+
+    print("Doesn't Exist")
+
+
 
 ## bar_thread.join()
 ## convert_thread.join()
