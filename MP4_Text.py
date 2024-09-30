@@ -17,7 +17,6 @@ import Text_GUI ## opens new GUI
 import tkinter as tk
 from tkinter import ttk
 import threading
-import time
 
 class ProgressBarApp:
     def __init__(self, root):
@@ -42,22 +41,24 @@ class ProgressBarApp:
 def update_bar_in_main_thread(app, current, end):
     app.update_progress(current, end)
 
+def start_thread(app, root, total_steps):
+    thread_function(app, root, total_steps)
+    
 def thread_function(app, root, total_steps):
+    global end_thread
+
     while current_mp4 < total_steps: 
     # for i in range(total_steps + 1):
 
         root.after(0, update_bar_in_main_thread, app, current_mp4 , total_steps) 
-        
+
         # time.sleep(0.5)  
+         
+    end_thread = True
 
     update_bar_in_main_thread(app, 1, 1)
+
     root.destroy()
-    
-
-def start_thread(app, root, total_mp4s):
-    
-    threading.Thread(target=thread_function, args=(app, root, total_mp4s)).start()
-
 
 def contains_text_files(directory_path):
     try:
@@ -355,7 +356,11 @@ def split_wav(wav_path, seconds, arr, output_folder, name, split_iterations=0):
     print(f"Split iteration {split_iterations} done for: {wav_path}")
 
     return max(max_iter, split_iterations)
- 
+
+def start_convert_thread(queue ,extracted_files, extract_path, folders, original_path):
+
+    loop_through_directory(queue ,extracted_files, extract_path, folders, original_path)
+
 def loop_through_directory(queue ,extracted_files, extract_path, folders, original_path):
 
     # step
@@ -420,6 +425,12 @@ def loop_through_directory(queue ,extracted_files, extract_path, folders, origin
 
             print("extract_path: ", extract_path)
 
+            if end_thread:
+                
+                print("Joining")
+                convert_thread.join()
+
+                
     print("Completed") # nice
 
     txt_directory = os.path.join(txt_folder, folders)
@@ -448,7 +459,7 @@ def find_total_files(folder):
 
             mp4_count += 1
     
-    return mp4_count * 4
+    return mp4_count
 
 
 def zip_output(text_folder, zip_file_name):
@@ -592,7 +603,7 @@ app = ProgressBarApp(root)
 
 current_mp4 = 0
 
-total_mp4s = find_total_files(extract_to_path)
+total_mp4s = find_total_files(extract_to_path) * 4 # times the steps
 
 extracted_files = os.listdir(extract_to_path)
 
@@ -603,15 +614,32 @@ queue = Queue()
 
 split_count = 0
 
+end_thread = False 
+
+loop_through_directory(queue, extracted_files, extract_to_path, "", extract_to_path)
+
+'''
+
 ## bar_thread = threading.Thread(target=updated_bar, args=(current_mp4, total_mp4s))
-convert_thread = threading.Thread(target=loop_through_directory, args=(queue, extracted_files, extract_to_path, "", extract_to_path))
+convert_thread = threading.Thread(target=start_convert_thread, args=(queue, extracted_files, extract_to_path, "", extract_to_path))
 
 ## bar_thread.start()
 convert_thread.start()
-start_thread(app, root, total_mp4s)
+
+print("Ending")
+
+convert_thread.join()
+
+thread = threading.Thread(target=start_thread, args=(app, root, total_mp4s))
+
+thread.start()
 root.mainloop()
 
 # check_queue()
+print("To Join")
+thread.join()
+
+'''
 
 print("Creating Zip File...")
 
@@ -641,8 +669,6 @@ if os.path.exists("C:\\Users\\CMP_OwDiBacco\\Downloads\\MP4-Text\\MP4"):
 else:
 
     print("Doesn't Exist")
-
-
 
 ## bar_thread.join()
 ## convert_thread.join()
