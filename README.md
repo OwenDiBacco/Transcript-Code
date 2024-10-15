@@ -22,6 +22,7 @@ All the required pip installations are located below: <br>
 
 ```bash
 pip install moviepy SpeechRecognition os-sys zipfile36 soundfile pydub requests msal pillow
+```
 
 ## How_To_Run_The_Application
 
