@@ -48,20 +48,12 @@ def delete_created_files(workspace, output_path):
     with open(delete_script_path, "w") as wrfile:
         wrfile.write('import os\n')
         wrfile.write('import glob\n')
-        wrfile.write('import shutil\n')
         wrfile.write(f'folder = r"{output_path}"\n')
-        wrfile.write('files = glob.glob(os.path.join(folder, "*"))\n')
-        wrfile.write('for f in files:\n')
+        wrfile.write('for file_path in glob.glob(os.path.join(folder, "*")):\n')
         wrfile.write('    try:\n')
-        wrfile.write('        if os.path.isfile(f):\n')
-        wrfile.write('            os.remove(f)\n')
-        wrfile.write('            print(f"Deleted file: {f}")\n')
-        wrfile.write('        elif os.path.isdir(f):\n')
-        wrfile.write('            shutil.rmtree(f)\n')
-        wrfile.write('            print(f"Deleted directory: {f}")\n')
+        wrfile.write('        os.remove(file_path)\n')
         wrfile.write('    except Exception as e:\n')
-        wrfile.write('        print(f"Failed to delete {f}: {e}")\n')
-        wrfile.write(f'os.remove(r"{delete_script_path}")\n')
+        wrfile.write('        print(f"Failed to delete {file_path}: {e}")\n')
 
     os.system(f'python3 "{delete_script_path}"')
 
@@ -129,6 +121,10 @@ def convert_wav_to_text(filename, output_wav_path):
         split_folder = os.path.join(split_audio_folder, filename)
         text = split_and_convert_wav(output_wav_path, split_folder, filename)
 
+    current_directory =  os.getcwd()
+    delete_created_files(current_directory, audio_path)
+    # Failed to delete .\d4571d2c-c71d-478c-8a24-03578b19aae9\Wav\Split: [WinError 5] Access is denied: '.\\d4571d2c-c71d-478c-8a24-03578b19aae9\\Wav\\Split'
+    # Failed to delete .\d4571d2c-c71d-478c-8a24-03578b19aae9\Wav\TestingZip: [WinError 5] Access is denied: '.\\d4571d2c-c71d-478c-8a24-03578b19aae9\\Wav\\TestingZip'
     return text
 
 
@@ -235,4 +231,3 @@ converting_directory_thread.start()
 progress_thread.join()
 converting_directory_thread.join()
 current_directory =  os.getcwd()
-delete_created_files(current_directory, root_path)
