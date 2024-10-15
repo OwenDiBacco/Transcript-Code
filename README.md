@@ -21,23 +21,17 @@ The program will produce a transcript of each mp4 file and a text file containin
 All the required pip installations are located below: <br>
 
 ```bash
-#!/bin/bash
+pip install moviepy SpeechRecognition os-sys zipfile36 soundfile pydub requests msal pillow
 
 ## How_To_Run_The_Application
 
 1. Run the MP4-Text.py file<br>
 2. Input the necessary file paths:<br>
 
-   a). In the 'File Selector' GUI, click 'Open Root Path'<br>
-   b). Select the folder where you would like to have all the backend converting operations take place (ex. C:\Users\[User Name]\Downloads\MP4-Text)<br>
-   c). Next select the 'Select Zip Path' button<br>
-   d). Select the zip file which contains the mp4's you intend to convert<br>
-   e). If you would like to choose where the text files are output, select the 'Select Txt Folder' button. To use the defualt txt output path, select the 'Use Default Txt Output Folder' radio button.<br>
-   f). When finished, select 'Run Application'<br>
+   a). Select the 'Select Zip Path' button<br>
+   b). Select the zip file which contains the mp4's you intend to convert<br>
+   
 
 ## When_The_Application_Is_Finished
 
 1. When this is completed, the completed zip file will appear in your downloads folder<br>
-2. Feel free to delete any of the added content to your root path, because they are no longer needed
-
-
