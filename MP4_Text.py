@@ -46,14 +46,10 @@ def run_progress_bar():
 def delete_created_files(workspace, output_path):
     delete_script_path = os.path.join(workspace, 'Delete.py')
     with open(delete_script_path, "w") as wrfile:
-        wrfile.write('import os\n')
-        wrfile.write('import glob\n')
-        wrfile.write(f'folder = r"{output_path}"\n')
-        wrfile.write('for file_path in glob.glob(os.path.join(folder, "*")):\n')
-        wrfile.write('    try:\n')
-        wrfile.write('        os.remove(file_path)\n')
-        wrfile.write('    except Exception as e:\n')
-        wrfile.write('        print(f"Failed to delete {file_path}: {e}")\n')
+        wrfile.write('import shutil\n')
+        wrfile.write(f'shutil.rmtree(r"{output_path}")\n') 
+        wrfile.write('import os\n')  
+        wrfile.write(f'os.remove(r"{delete_script_path}")\n')
 
     os.system(f'python3 "{delete_script_path}"')
 
@@ -122,9 +118,7 @@ def convert_wav_to_text(filename, output_wav_path):
         text = split_and_convert_wav(output_wav_path, split_folder, filename)
 
     current_directory =  os.getcwd()
-    delete_created_files(current_directory, audio_path)
-    # Failed to delete .\d4571d2c-c71d-478c-8a24-03578b19aae9\Wav\Split: [WinError 5] Access is denied: '.\\d4571d2c-c71d-478c-8a24-03578b19aae9\\Wav\\Split'
-    # Failed to delete .\d4571d2c-c71d-478c-8a24-03578b19aae9\Wav\TestingZip: [WinError 5] Access is denied: '.\\d4571d2c-c71d-478c-8a24-03578b19aae9\\Wav\\TestingZip'
+    delete_created_files(current_directory, audio_path) 
     return text
 
 
@@ -197,7 +191,7 @@ def find_total_files(folder):
     return mp4_count
 
 zip_file_path = Text_GUI.zip_path
-root_id = str(uuid.uuid4())
+root_id = "Output " + str(uuid.uuid4())
 root_path = f'.\\{root_id}'
 zip_file_path = f"{zip_file_path}"
 video_path = f"{root_path}\\MP4"
@@ -230,4 +224,3 @@ progress_thread.start()
 converting_directory_thread.start()
 progress_thread.join()
 converting_directory_thread.join()
-current_directory =  os.getcwd()
