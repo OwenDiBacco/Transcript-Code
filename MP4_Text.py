@@ -1,5 +1,6 @@
 import os
 import uuid
+import shutil
 import zipfile
 import Text_GUI
 import threading
@@ -16,21 +17,26 @@ class ProgressBarApp:
         self.root.title("Progress Bar")
         self.progress = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
         self.progress.pack(pady=20)
+        self.current_task = tk.Label(root, text='Starting...')
+        self.current_task.pack()
 
     def update_progress(self, current, total):
         if total == 0:
             return False  
+        
         progress_value = (current / total) * 100
         self.progress['value'] = progress_value
         self.root.update_idletasks()
         if current >= total:
             return False 
+        
         return True
 
 def run_progress_bar():
-    global current_mp4, total_mp4s
+    global current_mp4, total_mp4s, current_task
     root = tk.Tk()
     app = ProgressBarApp(root)
+    app.current_task.config(text=current_task)
 
     def progress_update():
         progressing = app.update_progress(current_mp4, total_mp4s)
@@ -43,15 +49,16 @@ def run_progress_bar():
     root.mainloop()
 
 
-def delete_created_files(workspace, output_path):
-    delete_script_path = os.path.join(workspace, 'Delete.py')
-    with open(delete_script_path, "w") as wrfile:
-        wrfile.write('import shutil\n')
-        wrfile.write(f'shutil.rmtree(r"{output_path}")\n') 
-        wrfile.write('import os\n')  
-        wrfile.write(f'os.remove(r"{delete_script_path}")\n')
+def delete_created_files(delete_path):
+    global current_task
+    current_task = f'Creating {delete_path}.txt'
+    os.remove(delete_path)
+    
 
-    os.system(f'python3 "{delete_script_path}"')
+def delete_created_dir(delete_path):
+    global current_task
+    current_task = f'Creating {delete_path}.txt'
+    shutil.rmtree(delete_path)
 
 
 def contains_text_files(directory_path):
@@ -64,36 +71,42 @@ def contains_text_files(directory_path):
     
 
 def combine_text_files(folder_path, output_file_name):
+    global current_task
+    current_task = f'Combining {folder_path} files'
     if contains_text_files(folder_path):
         output_file = os.path.join(folder_path, output_file_name + ".txt")
         recorded = []
-        iterations = -1
         with open(output_file, 'w') as outfile:
             number_of_files = 0
             for file in os.listdir(folder_path):
                 if file.endswith('.txt'):
                     number_of_files += 1
 
+            file_iterations = -1
             while len(recorded) < number_of_files -1:
-                iterations += 1
+                file_iterations += 1 
                 for filename in os.listdir(folder_path):
-                    string_iterations = ""
-                    if iterations < 10:
-                        string_iterations = "0" + str(iterations)
-
-                    else:
-                        string_iterations = str(iterations)
-
-                    if filename.endswith(".txt") and ((string_iterations)) in filename and filename not in recorded:
+                    if filename.endswith(".txt") and str(file_iterations) in filename:
                         recorded.append(filename)
                         file_path = os.path.join(folder_path, filename)
                         with open(file_path, 'r') as infile:
+                            outfile.write(f'Section: {filename}')
+                            outfile.write("\n")
+                            outfile.write("\n")
                             outfile.write(infile.read())
                             outfile.write("\n")  
-
+                            outfile.write("\n")
 
 def write_text(text, folders, filename):
-    global current_mp4
+    global current_mp4, current_task
+    current_task = f'Creating {filename}.txt'
+    filenames = filename.split('.')
+    if filenames[0].isdigit():
+        if int(filenames[0]) < 10:
+            filename = f'0{filenames[0]}. {filenames[1]}'
+        else:
+            filename = f'{filenames[0]}. {filenames[1]}'
+
     current_mp4 += 1 # progress the progress bar
     file_path = os.path.join(text_path, folders)
     os.makedirs(file_path, exist_ok=True)
@@ -104,8 +117,9 @@ def write_text(text, folders, filename):
 
 
 def convert_wav_to_text(filename, output_wav_path):
-    global current_mp4, split_audio_folder
+    global current_mp4, split_audio_folder, current_task
     current_mp4 += 1 # progress the progress bar
+    current_task = f'Converting {filename} to text'
     recognizer = sr.Recognizer()
     text = ''
     try:
@@ -117,14 +131,14 @@ def convert_wav_to_text(filename, output_wav_path):
         split_folder = os.path.join(split_audio_folder, filename)
         text = split_and_convert_wav(output_wav_path, split_folder, filename)
 
-    current_directory =  os.getcwd()
-    delete_created_files(current_directory, audio_path) 
+    delete_created_files(output_wav_path) 
     return text
 
 
 def convert_mp4_to_wav(file_path, folders):
-    global current_mp4
+    global current_mp4, current_task
     current_mp4 += 1 # progress the progress bar
+    current_task = f'Converting {file_path} to wav'
     filename = os.path.splitext(os.path.basename(file_path))[0]
     video = mp.VideoFileClip(file_path)
     output_wav_path = os.path.join(audio_path, folders)
@@ -147,12 +161,8 @@ def split_and_convert_wav(wav_path, split_path, filename):
         if len(chunk) > 0:
             with sr.AudioFile(full_wav_path) as source:
                 audio_chunk = recognizer.record(source)
-                try:
-                    text = recognizer.recognize_google(audio_chunk)
-                    chunk_text.append(text)
-
-                except: # don't know why this is here
-                    print("An Error Occured in the Splitting Function")
+                text = recognizer.recognize_google(audio_chunk)
+                chunk_text.append(text)
                 
     final_text = ''.join(chunk_text)
     return final_text
@@ -216,6 +226,7 @@ with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
 
 
 current_mp4 = 0
+current_task = ''
 total_mp4s = find_total_files(video_path) * 4 # times the steps
 extracted_files = os.listdir(video_path)
 progress_thread = threading.Thread(target=run_progress_bar)
@@ -224,3 +235,5 @@ progress_thread.start()
 converting_directory_thread.start()
 progress_thread.join()
 converting_directory_thread.join()
+delete_created_dir(audio_path) 
+# OSError: [WinError 6] The handle is invalid
