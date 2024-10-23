@@ -1,5 +1,6 @@
 import os
 import uuid
+
 import shutil
 import zipfile
 import threading
@@ -9,6 +10,7 @@ import tkinter as tk
 import moviepy.editor as mp
 import speech_recognition as sr
 from tkinter import ttk
+from pathlib import Path
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 
@@ -72,6 +74,17 @@ def write_AI_response(response, foldername):
     f.close()
 
 
+def find_zip_memory(directory):
+    total_size = 0
+    
+    for dirpath, dirnames, filenames in os.walk(directory): # durnames not used
+        for filename in filenames:
+            file_path = os.path.join(dirpath, filename)
+            total_size += os.path.getsize(file_path)
+    
+    return total_size
+
+
 def contains_text_files(directory_path):
     files = os.listdir(directory_path)
     for file in files:
@@ -79,7 +92,17 @@ def contains_text_files(directory_path):
             return True
         
     return False
-  
+
+
+def find_number_of_output_files():
+    files = os.listdir(output_folder)
+    number = 0
+    for file in files:
+        if output_dir_name in file:
+            number += 1
+    
+    return number 
+
 
 def combine_text_files(folder_path, output_file_name):
     global current_task
@@ -176,8 +199,11 @@ def split_and_convert_wav(wav_path, split_path, filename):
         if len(chunk) > 0:
             with sr.AudioFile(full_wav_path) as source:
                 audio_chunk = recognizer.record(source)
-                text = recognizer.recognize_google(audio_chunk)
-                chunk_text.append(text)
+                try:
+                    text = recognizer.recognize_google(audio_chunk)
+                    chunk_text.append(text)
+                except sr.UnknownValueError:
+                    pass
                 
     final_text = ''.join(chunk_text)
     return final_text
@@ -202,19 +228,17 @@ def loop_through_directory(extracted_files, extract_path, folders, original_path
 
     txt_directory = os.path.join(text_path, folders)
     combined_text_file = combine_text_files(txt_directory, "All")
-    foldername = os.path.basename(os.path.dirname(txt_directory))
-    if combined_text_file != None:
+    if combined_text_file != None and Select_Zip_File_GUI.checkbox_checked:
         content = ''
         with open(combined_text_file, 'r') as file:
-            content = file.read()
-            content += " /n" 
+            content = file.read() + " /n" 
 
         with open('prompt.txt', 'r') as file:
             content += file.read()
 
         response = Create_Notes_From_AI.prompt_genai(content)
-        print(response)
-        write_AI_response(response, foldername)
+        section_name = folders if folders else os.path.basename(zip_file_path)
+        write_AI_response(response, section_name)
 
 def find_total_files(folder):
     mp4_count = 0
@@ -227,32 +251,39 @@ def find_total_files(folder):
 
     return mp4_count
 
+output_dir_name = "Output Results"
+
 zip_file_path = Select_Zip_File_GUI.zip_path
-root_id = "Output " + str(uuid.uuid4())
-root_path = f'.\\{root_id}'
+output_folder = f'.\\Output' 
+if not os.path.exists(output_folder):
+    os.makedirs(output_folder)
+
+root_path = f'{output_folder}\\{output_dir_name} - {find_number_of_output_files() + 1}.'
 zip_file_path = f"{zip_file_path}"
 video_path = f"{root_path}\\MP4"
-audio_path = f"{root_path}\\Wav" 
-text_path = f"{root_path}\\Txt" 
-split_audio_folder = f"{root_path}\\Wav\\Split\\" 
-ai_response_folder = f"{root_path}\\AI Script\\"
-
 if not os.path.exists(video_path):
     os.makedirs(video_path)
 
+audio_path = f"{root_path}\\Wav" 
 if not os.path.exists(audio_path):
     os.makedirs(audio_path)
 
+text_path = f"{root_path}\\Txt" 
+if not os.path.exists(text_path):
+    os.makedirs(text_path)
+
+split_audio_folder = f"{root_path}\\Wav\\Split\\" 
 if not os.path.exists(split_audio_folder):
     os.makedirs(split_audio_folder)
 
-if not os.path.exists(text_path):
-    os.makedirs(text_path)
+ai_response_folder = f"{root_path}\\AI Script\\"
+if not os.path.exists(ai_response_folder):
+    os.makedirs(ai_response_folder)
 
 with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
     zip_ref.extractall(video_path)
 
-
+print(find_zip_memory(video_path))
 current_mp4 = 0
 current_task = ''
 total_mp4s = find_total_files(video_path) * 4 # times the steps
