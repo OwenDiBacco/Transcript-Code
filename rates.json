@@ -1,0 +1,44 @@
+{
+    "rates": [
+        {
+            "file_size_bytes": 11763166,
+            "processing_time_seconds": 18.397919,
+            "rate": 1.5640278306027477e-06
+        },
+        {
+            "file_size_bytes": 11763166,
+            "processing_time_seconds": 14.088601,
+            "rate": 1.197687850362734e-06
+        },
+        {
+            "file_size_bytes": 11763166,
+            "processing_time_seconds": 20.054072,
+            "rate": 1.704819263793438e-06
+        },
+        {
+            "file_size_bytes": 11763166,
+            "processing_time_seconds": 19.78018,
+            "rate": 1.6815353961680045e-06
+        },
+        {
+            "file_size_bytes": 11763166,
+            "processing_time_seconds": 19.104558,
+            "rate": 1.6241000084501062e-06
+        },
+        {
+            "file_size_bytes": 11763166,
+            "processing_time_seconds": 15.388775,
+            "rate": 1.3082171075372056e-06
+        },
+        {
+            "file_size_bytes": 11763166,
+            "processing_time_seconds": 18.70143,
+            "rate": 1.5898296428019462e-06
+        },
+        {
+            "file_size_bytes": 11763166,
+            "processing_time_seconds": 13.378734,
+            "rate": 1.137341256597076e-06
+        }
+    ]
+}

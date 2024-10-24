@@ -1,6 +1,7 @@
 import os
+import json
+import time 
 import uuid
-
 import shutil
 import zipfile
 import threading
@@ -12,12 +13,15 @@ import speech_recognition as sr
 from tkinter import ttk
 from pathlib import Path
 from pydub import AudioSegment
+from datetime import datetime, timedelta
 from pydub.silence import split_on_silence
 
 class ProgressBarApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Progress Bar")
+        self.estimated_time = tk.Label(root)
+        self.estimated_time.pack()
         self.progress = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
         self.progress.pack(pady=20)
         self.current_task = tk.Label(root, text='Starting...')
@@ -35,6 +39,7 @@ class ProgressBarApp:
         
         return True
 
+
 def run_progress_bar():
     global current_mp4, total_mp4s, current_task
     root = tk.Tk()
@@ -42,14 +47,76 @@ def run_progress_bar():
     app.current_task.config(text=current_task)
 
     def progress_update():
+        remaining_time = display_countdown(predicted_time_duration)
+        app.estimated_time.config(text=f'{remaining_time}')
         progressing = app.update_progress(current_mp4, total_mp4s)
         if progressing:
             root.after(100, progress_update)  
         else:
             root.destroy()
-
+ 
     root.after(100, progress_update)
     root.mainloop()
+
+
+def display_countdown(predicted_time_duration):
+    global start_time
+    current_time = datetime.now()
+    minutes, seconds = predicted_time_duration
+    predicted_time_duration_timedelta = timedelta(minutes=minutes, seconds=seconds)
+    elapsed_time = current_time - start_time
+    remaining_time = predicted_time_duration_timedelta - elapsed_time
+    if remaining_time < timedelta(0):
+        remaining_time_str = "00:00"
+        
+    else:
+        remaining_minutes, remaining_seconds = divmod(int(remaining_time.total_seconds()), 60)
+        remaining_time_str = f"{remaining_minutes:02}:{remaining_seconds:02}"
+
+    return remaining_time_str  
+
+
+def store_rate(file_size, processing_time, json_file="rates.json"): 
+    rate = processing_time / file_size
+    rate_data = {
+        "file_size_bytes": file_size,
+        "processing_time_seconds": processing_time,
+        "rate": rate
+    }
+    
+    if os.path.exists(json_file):
+        with open(json_file, 'r') as file:
+            data = json.load(file)
+    else:
+        data = {"rates": []}
+
+    data["rates"].append(rate_data)
+    with open(json_file, 'w') as file:
+        json.dump(data, file, indent=4)
+        
+    if len(data["rates"]) >= 10:
+        data["rates"].pop(0)
+
+
+def load_rates(json_file="rates.json"):
+    if os.path.exists(json_file):
+        with open(json_file, 'r') as file:
+            data = json.load(file)
+        return data["rates"]
+    else:
+        return []
+
+def calculate_average_rate(json_file="rates.json"):
+    rates = load_rates(json_file)
+    if rates:
+        total_rate = sum([entry["rate"] for entry in rates])
+        return total_rate / len(rates)
+    else:
+        return None  
+
+
+def find_total_seconds(start_time):
+    return (datetime.now() - start_time).total_seconds()
 
 
 def delete_created_files(delete_path):
@@ -77,11 +144,12 @@ def write_AI_response(response, foldername):
 def find_zip_memory(directory):
     total_size = 0
     
-    for dirpath, dirnames, filenames in os.walk(directory): # durnames not used
+    for dirpath, dirnames, filenames in os.walk(directory):  # dirnames not used
         for filename in filenames:
             file_path = os.path.join(dirpath, filename)
-            total_size += os.path.getsize(file_path)
-    
+            file_size = os.path.getsize(file_path)
+            total_size += file_size  # size in bytes
+     
     return total_size
 
 
@@ -251,6 +319,15 @@ def find_total_files(folder):
 
     return mp4_count
 
+
+def convert_seconds(seconds):
+    minutes = seconds // 60  
+    remaining_seconds = seconds % 60 
+    return minutes, remaining_seconds
+
+
+average_rate = calculate_average_rate()
+start_time = datetime.now()
 output_dir_name = "Output Results"
 
 zip_file_path = Select_Zip_File_GUI.zip_path
@@ -283,16 +360,24 @@ if not os.path.exists(ai_response_folder):
 with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
     zip_ref.extractall(video_path)
 
-print(find_zip_memory(video_path))
+average_rate = calculate_average_rate() # rate of seconds per byte
+file_size = find_zip_memory(video_path) # size in bytes
+predicted_time = None
+if average_rate:
+    predicted_time = file_size * average_rate
+
 current_mp4 = 0
 current_task = ''
+predicted_time_duration = convert_seconds(predicted_time)
 total_mp4s = find_total_files(video_path) * 4 # times the steps
 extracted_files = os.listdir(video_path)
-progress_thread = threading.Thread(target=run_progress_bar)
+progress_thread = threading.Thread(target=run_progress_bar) 
 converting_directory_thread = threading.Thread(target=loop_through_directory,  args=(extracted_files, video_path, "", video_path))
 progress_thread.start()
 converting_directory_thread.start()
 progress_thread.join()
 converting_directory_thread.join()
 delete_created_dir(audio_path) 
+total_seconds = find_total_seconds(start_time) 
+store_rate(file_size, total_seconds)
 # OSError: [WinError 6] The handle is invalid
