@@ -1,7 +1,5 @@
 import os
 import json
-import time 
-import uuid
 import shutil
 import zipfile
 import threading
@@ -10,48 +8,115 @@ import Create_Notes_From_AI
 import tkinter as tk
 import moviepy.editor as mp
 import speech_recognition as sr
-from tkinter import ttk
-from pathlib import Path
+from PIL import Image, ImageTk
 from pydub import AudioSegment
 from datetime import datetime, timedelta
 from pydub.silence import split_on_silence
+from concurrent.futures import ThreadPoolExecutor
 
 class ProgressBarApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Progress Bar")
+
+        self.super_mario_frames = self.load_gif_frames('images\\super_mario_running.gif') # returns an array full of <PIL.ImageTk.PhotoImage object at 0x0000026545A67E50> objects 
+        # idea: could create an array full of mario running png frames which have no background
+
+        self.image = Image.open('images\\super_mario_background.png')   
+        background_image_width, background_image_height = self.image.size
+        self.cropped_background_image = self.image.crop((0, background_image_height // 2, background_image_width, background_image_height))  # Crop from halfway down to the bottom
+    
+        self.cropped_background_image = self.cropped_background_image.resize((600, 200), Image.LANCZOS)
+        self.background_photo = ImageTk.PhotoImage(self.cropped_background_image)
+        self.background_label = tk.Label(root, image=self.background_photo)
+        self.background_label.place(x=0, y=0, relwidth=1, relheight=1)
+
+        self.super_mario_x = 0
+        self.super_mario_y = 92 # places mario on top of the dirt
+        
+        self.current_frame_index = 0 # starting mario gif frame
+        self.mario_label = tk.Label(root)
+        self.mario_label.place(x=self.super_mario_x, y=self.super_mario_y) # starting position
+        
         self.estimated_time = tk.Label(root)
         self.estimated_time.pack()
-        self.progress = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
-        self.progress.pack(pady=20)
+
         self.current_task = tk.Label(root, text='Starting...')
         self.current_task.pack()
 
-    def update_progress(self, current, total):
+    def load_gif_frames(self, gif_path):
+        image = Image.open(gif_path)
+        frames = []
+        
+        try:
+            while True:
+                self.super_mario_width = 50
+                self.super_mario_height = 50
+                resized_frame = image.copy().resize((self.super_mario_width, self.super_mario_height), Image.LANCZOS)
+                frames.append(ImageTk.PhotoImage(resized_frame))
+                image.seek(len(frames))
+        except EOFError:
+            pass  
+        
+        return frames
+
+    def update_progress(self, current, total, window_width):
         if total == 0:
             return False  
         
-        progress_value = (current / total) * 100
-        self.progress['value'] = progress_value
-        self.root.update_idletasks()
-        if current >= total:
+        progress_value = (current / total) * (window_width - self.super_mario_width)
+        if current >= total and progress_value >= window_width - self.super_mario_width and window_width <= self.super_mario_x + self.super_mario_width: 
+            self.update_position(progress_value)
             return False 
         
-        return True
+        if progress_value <= window_width:
+            self.update_position(progress_value)
+            return True
+        
+        elif self.super_mario_x < progress_value:
+            self.update_position(progress_value)
+            return True
+        
+        return False 
+    
+    def update_position(self, progress_value):
+        self.super_mario_x = progress_value
+        self.mario_label.place(x=self.super_mario_x, y=self.super_mario_y)
+        self.root.update_idletasks()
+    
+    def update_frame(self, ind):
+        self.frame = tk.frames[ind]
+        ind += 1
+        if ind == tk.frame_count:
+            ind = 0
 
+        tk.label.configure(image=self.frame)
+        self.root.after(50, tk.update_frame, ind)
+
+    def display_mario(self):
+        frame = self.super_mario_frames[self.current_frame_index]
+        self.mario_label.configure(image=frame)
+        self.current_frame_index = (self.current_frame_index + 1) % len(self.super_mario_frames)
+        self.root.after(50, self.display_mario)
 
 def run_progress_bar():
     global current_mp4, total_mp4s, current_task
     root = tk.Tk()
+    window_width = 600
+    window_height = 200
+    root.geometry(f"{window_width}x{window_height}")
     app = ProgressBarApp(root)
     app.current_task.config(text=current_task)
 
     def progress_update():
         remaining_time = display_countdown(predicted_time_duration)
         app.estimated_time.config(text=f'{remaining_time}')
-        progressing = app.update_progress(current_mp4, total_mp4s)
+        app.display_mario() # displays the gif animation, doesn't affect position at all
+
+        progressing = app.update_progress(current_mp4, total_mp4s, window_width)
         if progressing:
-            root.after(100, progress_update)  
+            root.after(100, progress_update)
+             
         else:
             root.destroy()
  
@@ -106,11 +171,13 @@ def load_rates(json_file="rates.json"):
     else:
         return []
 
+
 def calculate_average_rate(json_file="rates.json"):
     rates = load_rates(json_file)
     if rates:
         total_rate = sum([entry["rate"] for entry in rates])
         return total_rate / len(rates)
+    
     else:
         return None  
 
@@ -186,7 +253,10 @@ def combine_text_files(folder_path, output_file_name):
 
             file_iterations = -1
             while len(recorded) < number_of_files -1:
-                file_iterations += 1 
+                file_iterations += 1
+                if len(str(file_iterations)) < 1:
+                    file_iterations = "0" + file_iterations
+
                 for filename in os.listdir(folder_path):
                     if filename.endswith(".txt") and str(file_iterations) in filename:
                         recorded.append(filename)
@@ -202,6 +272,7 @@ def combine_text_files(folder_path, output_file_name):
         return output_file
     else:
         return None
+
 
 def write_text(text, folders, filename):
     global current_mp4, current_task
@@ -280,12 +351,12 @@ def split_and_convert_wav(wav_path, split_path, filename):
 def loop_through_directory(extracted_files, extract_path, folders, original_path):
     global current_mp4, total_mp4s #?
     for content in extracted_files:
+        folder_path = extract_path
         file_path = os.path.join(extract_path, content)
         if '.mp4' in content[-4:]:
             current_mp4 += 1 # progress the progress bar
-            filename, wav = convert_mp4_to_wav(file_path, folders) 
-            write_text(convert_wav_to_text(filename, wav), folders, filename)
-
+            create_threads_for_mp4_folder(folder_path, folders)
+    
         elif os.path.isdir(file_path):
             extracted_files = os.listdir(file_path)
             extract_path = file_path
@@ -308,12 +379,31 @@ def loop_through_directory(extracted_files, extract_path, folders, original_path
         section_name = folders if folders else os.path.basename(zip_file_path)
         write_AI_response(response, section_name)
 
+
+def process_file(file_path, folders):
+    filename, wav = convert_mp4_to_wav(file_path, folders) 
+    write_text(convert_wav_to_text(filename, wav), folders, filename)
+
+
+def create_threads_for_mp4_folder(folder_path, folders): # creates a thread for each mp4 in a folder to be processed
+    # thread pool: group of pre-instantiated, idle threads 
+    mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
+    def wrapper(mp4_file):
+        return process_file(mp4_file, folders)
+    
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(wrapper, mp4_files))
+
+    return results
+
+
 def find_total_files(folder):
     mp4_count = 0
     for item in os.listdir(folder):
         item_path = os.path.join(folder, item)
         if os.path.isdir(item_path):
             mp4_count += find_total_files(item_path)
+
         elif item.endswith(".mp4"):
             mp4_count += 1
 
