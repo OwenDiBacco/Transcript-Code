@@ -15,10 +15,9 @@ def open_zip():
         for zip in zip_path:
             if zip[-1] == ":":
                 zip = zip + "\\"
-
             path = os.path.join(path, zip)
 
-        label.config(text="Zip Path: " + str(path))
+        path_label.config(text="Zip Path: " + str(path))
         zip_path = path
 
 def checkbox_action():
@@ -34,7 +33,7 @@ def close_app():
     root.destroy()
 
 root = tk.Tk()
-root.geometry('400x300')
+root.geometry('500x350')
 root.title("File Selector")
 root.configure(bg="#2e2e2e")
 
@@ -49,6 +48,9 @@ ai_script_var = tk.IntVar()
 original_image = Image.open('images/zip_icon.png')
 resized_image = original_image.resize((50, 50), Image.LANCZOS)
 zip_icon = ImageTk.PhotoImage(resized_image)
+
+path_label = tk.Label(root, text="", font=description_font, bg="#2e2e2e", fg="white")
+path_label.pack(pady=10)
 
 zip_button = tk.Button(root, image=zip_icon, command=open_zip, borderwidth=0, bg="#4CAF50", activebackground="#45a049")
 zip_button.pack(pady=20)
@@ -69,5 +71,8 @@ checkbox.pack(pady=10)
 
 status_label = tk.Label(root, text="AI Script Generation: Disabled", font=description_font, fg="red", bg="#2e2e2e")
 status_label.pack(pady=10)
+
+close_button = tk.Button(root, text="Close", command=close_app, font=description_font, bg="#f44336", fg="white", borderwidth=0, padx=10, pady=5)
+close_button.pack(side=tk.BOTTOM, pady=10)
 
 root.mainloop()
