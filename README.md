@@ -21,7 +21,7 @@ The program will produce a transcript of each mp4 file and a text file containin
 All the required pip installations are located below: <br>
 
 ```bash
-pip install moviepy SpeechRecognition os-sys zipfile36 soundfile pydub requests msal pillow
+pip install -r requirements.txt
 ```
 
 ## How_To_Run_The_Application
