@@ -1,16 +1,6 @@
 {
     "rates": [
         {
-            "file_size_bytes": 11763166,
-            "processing_time_seconds": 19.722431,
-            "rate": 1.6766260885887355e-06
-        },
-        {
-            "file_size_bytes": 11763166,
-            "processing_time_seconds": 17.576099,
-            "rate": 1.4941639861241437e-06
-        },
-        {
             "file_size_bytes": 78663368,
             "processing_time_seconds": 187.718008,
             "rate": 2.3863459291496394e-06
@@ -44,6 +34,16 @@
             "file_size_bytes": 11763166,
             "processing_time_seconds": 13.787178,
             "rate": 1.1720635413969336e-06
+        },
+        {
+            "file_size_bytes": 11763166,
+            "processing_time_seconds": 15.485623,
+            "rate": 1.3164502651752089e-06
+        },
+        {
+            "file_size_bytes": 11763166,
+            "processing_time_seconds": 17.509785,
+            "rate": 1.4885265582412083e-06
         }
     ]
 }

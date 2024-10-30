@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from pydub.silence import split_on_silence
 from concurrent.futures import ThreadPoolExecutor
 
-class ProgressBarApp:
+class ProgressBarApp: # Progress bar needs to be in this file, to make changes to the root window
     def __init__(self, root):
         self.root = root
         self.root.title("Progress Bar")
@@ -24,120 +24,130 @@ class ProgressBarApp:
         # idea: could create an array full of mario running png frames which have no background
 
         self.image = Image.open('images\\super_mario_background.png')   
-        background_image_width, background_image_height = self.image.size
-        self.cropped_background_image = self.image.crop((0, background_image_height // 2, background_image_width, background_image_height))  # Crop from halfway down to the bottom
+        background_image_width, background_image_height = self.image.size # find the default size of the background image
+        self.cropped_background_image = self.image.crop((0, background_image_height // 2, background_image_width, background_image_height))  # Crop the image by removing the top half
     
-        self.cropped_background_image = self.cropped_background_image.resize((600, 200), Image.LANCZOS)
-        self.background_photo = ImageTk.PhotoImage(self.cropped_background_image)
-        self.background_label = tk.Label(root, image=self.background_photo)
-        self.background_label.place(x=0, y=0, relwidth=1, relheight=1)
+        self.cropped_background_image = self.cropped_background_image.resize((600, 200), Image.LANCZOS) # resize the image 
+        self.background_photo = ImageTk.PhotoImage(self.cropped_background_image) # defines the images as it's cropped version 
+        self.background_label = tk.Label(root, image=self.background_photo) # the label which will display the background image
+        self.background_label.place(x=0, y=0, relwidth=1, relheight=1) # places label in the top-left corner and makes it cover the entire screen
 
-        self.super_mario_x = 0
+        self.super_mario_x = 0 # the starting values for mario
         self.super_mario_y = 92 # places mario on top of the dirt
         
         self.current_frame_index = 0 # starting mario gif frame
-        self.mario_label = tk.Label(root)
+        self.mario_label = tk.Label(root) # creates label which will contain the mario image
         self.mario_label.place(x=self.super_mario_x, y=self.super_mario_y) # starting position
         
-        self.estimated_time = tk.Label(root, bg="#5C94FC", fg="white", font=("Helvetica", 12, "bold"))
+        self.estimated_time = tk.Label(root, bg="#5C94FC", fg="white", font=("Helvetica", 12, "bold")) # changes the colors and fonts of the countdown
         self.estimated_time.pack()
 
+    '''
+    Opens the gif and defines a frames array full of all the gif frames
+    '''
     def load_gif_frames(self, gif_path):
-        image = Image.open(gif_path)
+        image = Image.open(gif_path) # Creates an image object from opening the filepath
         frames = []
         
         try:
-            while True:
-                self.super_mario_width = 50
+            while True: # loop until it reaches the end of the file
+                self.super_mario_width = 50 # defines the size of the mario image
                 self.super_mario_height = 50
-                resized_frame = image.copy().resize((self.super_mario_width, self.super_mario_height), Image.LANCZOS)
-                frames.append(ImageTk.PhotoImage(resized_frame))
-                image.seek(len(frames))
+                resized_frame = image.copy().resize((self.super_mario_width, self.super_mario_height), Image.LANCZOS) # resizes the current frame
+                frames.append(ImageTk.PhotoImage(resized_frame)) # appends the current frame
+                image.seek(len(frames)) # moves to the next frame in the gif 
 
-        except EOFError:
+        except EOFError: # reached the end of file 
             pass  
         
         return frames
 
-    def update_progress(self, current, total, window_width):
-        if total == 0:
+    '''
+    Updates Mario image's x position
+    '''
+    def update_progress(self, current_step, total_steps, window_width):
+        if total_steps == 0: # if there are no mp4s in the program 
             return False  
+            
+        true_window_width = window_width - self.super_mario_width # the window width that the image can entirely be displayed inside
+        progress_value = (current_step / total_steps) * true_window_width # divides the current step by the total step and multplies it by the window width 
         
-        progress_value = (current / total) * (window_width - self.super_mario_width)
-        if current >= total and progress_value >= window_width - self.super_mario_width and window_width <= self.super_mario_x + self.super_mario_width: 
-            self.update_position(progress_value)
-            time.sleep(1)
+        if current_step == total_steps and true_window_width <= self.super_mario_x: # all the steps are completed and mario is at the very edge of the window
+            self.update_position(progress_value) # update the x position of the mario image
+            time.sleep(1) # pause for 1 second to show how the progress bar is complete
             return False 
         
-        if progress_value <= window_width:
-            self.update_position(progress_value)
+        elif progress_value <= true_window_width:
+            self.update_position(progress_value) # update the x position of the mario image
             return True
         
         elif self.super_mario_x < progress_value:
-            self.update_position(progress_value)
+            self.update_position(progress_value) # update the x position of the mario image
             return True
         
         return False 
     
-    def update_position(self, progress_value):
-        self.super_mario_x = progress_value
-        self.mario_label.place(x=self.super_mario_x, y=self.super_mario_y)
-        self.root.update_idletasks()
-    
-    def update_frame(self, ind):
-        self.frame = tk.frames[ind]
-        ind += 1
-        if ind == tk.frame_count:
-            ind = 0
+    '''
+    Updates the x-postion of the Mario image on the window
+    '''
+    def update_position(self, x_value): 
+        self.super_mario_x = x_value # updates Mario's x coordinate
+        self.mario_label.place(x=self.super_mario_x, y=self.super_mario_y) # places the Mario image at the new location
+        self.root.update_idletasks() # updates the window
 
-        tk.label.configure(image=self.frame)
-        self.root.after(50, tk.update_frame, ind)
-
+    '''
+    Displays the current frame in the GIF
+    '''
     def display_mario(self):
-        frame = self.super_mario_frames[self.current_frame_index]
-        self.mario_label.configure(image=frame)
-        self.current_frame_index = (self.current_frame_index + 1) % len(self.super_mario_frames)
-        self.root.after(50, self.display_mario)
+        frame = self.super_mario_frames[self.current_frame_index] # selects the current frame from all the frames in the gif
+        self.mario_label.configure(image=frame) # displays the current frame
+        self.current_frame_index = (self.current_frame_index + 1) % len(self.super_mario_frames) # iterates the current frame index
+        self.root.after(50, self.display_mario) # runs recursivley after 50 milliseconds
 
+'''
+Function starts the progress bar window
+'''
 def run_progress_bar():
-    global current_mp4, total_mp4s
-    root = tk.Tk()
-    window_width = 600
+    global current_step, total_steps
+    root = tk.Tk() # create progress bar root
+    window_width = 600 # define the window size 
     window_height = 200
-    root.geometry(f"{window_width}x{window_height}")
-    app = ProgressBarApp(root)
+    root.geometry(f"{window_width}x{window_height}") # create the window 
+    app = ProgressBarApp(root) # create ProgressBarApp instance
 
-    def progress_update():
-        remaining_time = display_countdown(predicted_time_duration)
-        app.estimated_time.config(text=f'{remaining_time}')
-        app.display_mario() # displays the gif animation, doesn't affect position at all
-
-        progressing = app.update_progress(current_mp4, total_mp4s, window_width)
+    def progress_update(): # function updates the progress bar
+        remaining_time = update_countdown(predicted_time_formatted) # update the predicted time remaining
+        app.estimated_time.config(text=f'{remaining_time}') # display the predicted time remaining
+        app.display_mario() # displays the updated frame in the gif animation, doesn't affect position at all
+        progressing = app.update_progress(current_step, total_steps, window_width) # if the progress bar is still running
         if progressing:
-            root.after(100, progress_update)
+            root.after(100, progress_update) # run function recursively, after 100 milliseconds
              
         else:
-            root.destroy()
+            root.destroy() # close the window 
  
-    root.after(100, progress_update)
-    root.mainloop()
+    root.after(100, progress_update) # starts the recursive update function
+    root.mainloop() # keeps window open
 
 
-def display_countdown(predicted_time_duration):
-    global start_time
-    current_time = datetime.now()
+'''
+Returns the the predicted time left in a formatted manner
+'''
+def update_countdown(predicted_time_duration): # takes predicted time left as a tuple (minute, seconds)
+    global start_time # used the time the run started 
+    current_time = datetime.now() # takes the current time for comparison
     minutes, seconds = predicted_time_duration
-    predicted_time_duration_timedelta = timedelta(minutes=minutes, seconds=seconds)
-    elapsed_time = current_time - start_time
-    remaining_time = predicted_time_duration_timedelta - elapsed_time
+    predicted_time_duration_timedelta = timedelta(minutes=minutes, seconds=seconds) # timedelta object formats the minutes and seconds to represent the remaining duration of time
+    elapsed_time = current_time - start_time # finds the time which has passed from the start of the run
+    remaining_time = predicted_time_duration_timedelta - elapsed_time # the time which is left in the program
     if remaining_time.total_seconds() >= 0:
-        remaining_minutes, remaining_seconds = divmod(int(remaining_time.total_seconds()), 60)
-        remaining_time_str = f"{remaining_minutes:02}:{remaining_seconds:02}"
+        remaining_minutes, remaining_seconds = divmod(int(remaining_time.total_seconds()), 60) # defines the individual minutes and seconds remaining
+        remaining_time_str = f"{remaining_minutes:02}:{remaining_seconds:02}" # returns the minutes and seconds as strings
 
     else:
-        overdue_time = abs(remaining_time)
-        overdue_minutes, overdue_seconds = divmod(int(overdue_time.total_seconds()), 60)
-        remaining_time_str = f"-{overdue_minutes:02}:{overdue_seconds:02}"
+        overdue_time = abs(remaining_time) # returns the overdue time as a non-negative number 
+        overdue_minutes, overdue_seconds = divmod(int(overdue_time.total_seconds()), 60) # defines the individual minutes and seconds remaining
+        remaining_time_str = f"-{overdue_minutes:02}:{overdue_seconds:02}" # returns the minutes and seconds as strings
 
     return remaining_time_str  
 
@@ -172,9 +182,12 @@ def load_rates(json_file="rates.json"):
         return data["rates"]
     else:
         return []
+    
 
-
-def calculate_average_rate(json_file="rates.json"):
+'''
+returns the average rate (rate = total bytes being processed / seconds it took the application to run) based on the last 10 runs
+''' 
+def calculate_average_rate(json_file="rates.json"): 
     rates = load_rates(json_file)
     if rates:
         total_rate = sum([entry["rate"] for entry in rates])
@@ -198,22 +211,29 @@ def delete_created_dir(delete_path):
     shutil.rmtree(delete_path)
 
 
+'''
+Creates an AI generated worksheet based off Gemini's response
+'''
 def write_AI_response(response, foldername):
+    ai_response_folder = f"{root_path}\\AI Script\\" # creates a directory for the AI worksheet
     if not os.path.exists(ai_response_folder):
-        os.makedirs(ai_response_folder)
+        os.makedirs(ai_response_folder) # if the directory doesn't exist, create one 
 
-    ai_response_file = os.path.join(ai_response_folder, foldername + ".txt")
-    f = open(ai_response_file, "w")
-    f.write(response)
+    ai_response_file = os.path.join(ai_response_folder, foldername + ".txt") # defines a variable for the AI generated workseet path
+    f = open(ai_response_file, "w") # creates and opens new txt file
+    f.write(response) # writes the AI response to the worksheet
     f.close()
 
 
+'''
+Finds the total memory of all the mp4s being processed
+'''
 def find_zip_memory(directory):
     total_size = 0
-    for dirpath, dirnames, filenames in os.walk(directory):  # dirnames not used
-        for filename in filenames:
-            file_path = os.path.join(dirpath, filename)
-            file_size = os.path.getsize(file_path)
+    for dirpath, dirnames, filenames in os.walk(directory): # iterates over the specified directory and its subdirectories.
+        for filename in filenames: # loops through all the files (mp4s) in the directory
+            file_path = os.path.join(dirpath, filename) # gets the total path script, so os can recognize it
+            file_size = os.path.getsize(file_path) # gets the size of the specific file
             total_size += file_size  # size in bytes
      
     return total_size
@@ -228,38 +248,44 @@ def contains_text_files(directory_path):
     return False
 
 
+'''
+Returns the number of output directories have been created. Used for numbering the current run
+'''
 def find_number_of_output_files():
-    files = os.listdir(output_folder)
+    files = os.listdir(output_folder) # list all the files in the directory
     number = 0
     for file in files:
-        if output_dir_name in file:
+        if output_dir_name in file: # if the file has the name that all output directories have in common
             number += 1
     
     return number 
 
 
+'''
+Combines all the text files in a directory into one text file
+'''
 def combine_text_files(folder_path, output_file_name):
     print(f'Combining {folder_path} files')
-    output_file = os.path.join(folder_path, output_file_name + ".txt")
-    if contains_text_files(folder_path):    
+    output_file = os.path.join(folder_path, output_file_name + ".txt") # defines a varaible that contains the full path for the new text file
+    if contains_text_files(folder_path): # checks if the directory contains text files 
         recorded = []
-        with open(output_file, 'w') as outfile:
+        with open(output_file, 'w') as outfile: # creates and opens the new text file to write in 
             number_of_files = 0
-            for file in os.listdir(folder_path):
-                if file.endswith('.txt'):
+            for file in os.listdir(folder_path): # lists all the files in the directory 
+                if file.endswith('.txt'): # checks if the file is a text file
                     number_of_files += 1
 
             file_iterations = -1
-            while len(recorded) < number_of_files -1:
+            while len(recorded) < number_of_files -1: # while the text files accounted for is less than the total
                 file_iterations += 1
-                if len(str(file_iterations)) < 1:
+                if len(str(file_iterations)) < 1: # formats monograms to prepend a 0 to the front as a string 
                     file_iterations = "0" + file_iterations
 
-                for filename in os.listdir(folder_path):
-                    if filename.endswith(".txt") and str(file_iterations) in filename:
-                        recorded.append(filename)
-                        file_path = os.path.join(folder_path, filename)
-                        with open(file_path, 'r') as infile:
+                for filename in os.listdir(folder_path): # lists all the files from the folder path
+                    if filename.endswith(".txt") and str(file_iterations) in filename: # file is a text file and is next in the iteration
+                        recorded.append(filename) # adds the file to the array of recored files
+                        file_path = os.path.join(folder_path, filename) # creates the entire file path so the os system can recognize it
+                        with open(file_path, 'r') as infile: # reads the text file and writes it to the combine text file
                             outfile.write(f'Section: {filename}')
                             outfile.write("\n")
                             outfile.write("\n")
@@ -267,9 +293,10 @@ def combine_text_files(folder_path, output_file_name):
                             outfile.write("\n")  
                             outfile.write("\n")
 
-        return output_file
+        return output_file # returns the text file that contains all the text files
+    
     else:
-        return None
+        return None # returns nothing if there are no text files in the directory
 
 
 def write_text(text, folders, filename):
@@ -299,8 +326,7 @@ def convert_wav_to_text(filename, output_wav_path):
             text = recognizer.recognize_google(audio)
 
     except: # add the exception
-        split_folder = os.path.join(split_audio_folder, filename)
-        text = split_and_convert_wav(output_wav_path, split_folder, filename)
+        text = split_and_convert_wav(output_wav_path, filename)
 
     delete_created_files(output_wav_path) 
     return text
@@ -317,7 +343,11 @@ def convert_mp4_to_wav(file_path, folders):
     return filename, output_wav_path
 
 
-def split_and_convert_wav(wav_path, split_path, filename):
+def split_and_convert_wav(wav_path, filename):
+    split_audio_folder = f"{root_path}\\Wav\\Split\\" # if a wav file is too large, it will need to be split. This is where the split files will be located 
+    if not os.path.exists(split_audio_folder):
+        os.makedirs(split_audio_folder) # creates the split directory if it doesn't yet exist
+
     chunk_text = []
     audio = AudioSegment.from_wav(wav_path)
     chunks = split_on_silence(audio, min_silence_len=500, silence_thresh=-40)
@@ -340,43 +370,44 @@ def split_and_convert_wav(wav_path, split_path, filename):
     return final_text
 
 
-def loop_through_directory(extracted_files, extract_path, folders, original_path):
-    for content in extracted_files:
-        folder_path = extract_path
-        file_path = os.path.join(extract_path, content)
-        if os.path.isdir(file_path):
-            extracted_files = os.listdir(file_path)
-            extract_path = file_path
-            folders = os.path.join(folders, content)
-            loop_through_directory(extracted_files, extract_path, folders, original_path)
-            extract_path = original_path
-            folders = ""
+'''
+Loops through a specific directory and process each mp4 file: convert to wav, convert to text, ect
+'''
+def loop_through_directory(extracted_files, extract_path, folders):
+    for content in extracted_files: # iterates through all the files which were extracted 
+        folder_path = extract_path # renaming to folder_path for clarification
+        file_path = os.path.join(extract_path, content) # creates the full path so the os can recognize it
+        if os.path.isdir(file_path): # if file_path is a directory 
+            extracted_files = os.listdir(file_path) # list all the files in the newfound directory
+            search_directory_path = file_path # renamed for clarification
+            updated_folders = os.path.join(folders, content) # adds the found directory to the list of all folders
+            loop_through_directory(extracted_files, search_directory_path, updated_folders) # searches all the files in the found directory recursivley
     
-    create_threads_for_mp4_folder(folder_path, folders)
-    txt_directory = os.path.join(text_path, folders)
-    combined_text_file = combine_text_files(txt_directory, "All")
-    if combined_text_file != None and Select_Zip_File_GUI.checkbox_checked:
+    create_threads_for_mp4_folder(folder_path, folders) # process all the files concurrently for efficency 
+    txt_directory = os.path.join(text_path, folders) # creates specific text output directory for the specific directory
+    combined_text_file = combine_text_files(txt_directory, "All") # combines all the text files in a directory into one file
+    if combined_text_file != None and Select_Zip_File_GUI.checkbox_checked: # checks if the user checked the box for AI worksheet creation
         content = ''
         with open(combined_text_file, 'r') as file:
-            content = file.read() + " /n" 
+            content = file.read() + " /n" # reads the content from the combined text file
 
         with open('prompt.txt', 'r') as file:
-            content += file.read()
+            content += file.read() # reads in the prompt from prompt.txt to input into Gemini
 
-        response = Create_Notes_From_AI.prompt_genai(content)
-        section_name = folders if folders else os.path.basename(zip_file_path)
-        write_AI_response(response, section_name)
+        response = Create_Notes_From_AI.prompt_genai(content) # records the response from the Gemini prompt
+        section_name = folders if folders else os.path.basename(zip_file_path) # records the section name for the worksheet title
+        write_AI_response(response, section_name) # adds the complete worksheet to the AI output directory 
 
 
 def process_file(mp4_file, folder_path, folders):
-    global current_mp4
+    global current_step
     file_path = os.path.join(folder_path, mp4_file)
     filename, wav = convert_mp4_to_wav(file_path, folders) 
-    current_mp4 += 1 # mp4 converted to wav
+    current_step += 1 # mp4 converted to wav
     text = convert_wav_to_text(filename, wav)
-    current_mp4 += 1 # wav converted to text
+    current_step += 1 # wav converted to text
     write_text(text, folders, filename)
-    current_mp4 += 1 # progress the progress bar, text written
+    current_step += 1 # progress the progress bar, text written
 
 
 def create_threads_for_mp4_folder(folder_path, folders): # creates a thread for each mp4 in a folder to be processed
@@ -391,77 +422,72 @@ def create_threads_for_mp4_folder(folder_path, folders): # creates a thread for 
     return results
 
 
+'''
+Returns the number of mp4 files are in a specific folder
+'''
 def find_total_files(folder):
     mp4_count = 0
-    for item in os.listdir(folder):
-        item_path = os.path.join(folder, item)
-        if os.path.isdir(item_path):
-            mp4_count += find_total_files(item_path)
+    for item in os.listdir(folder): # lists all the items (directory or file) in the folder
+        item_path = os.path.join(folder, item) # creates the item's full path so the os can recognize it
+        if os.path.isdir(item_path): # checks if the item is a directory 
+            mp4_count += find_total_files(item_path) # searches for mp4s recursively 
 
-        elif item.endswith(".mp4"):
+        elif item.endswith(".mp4"): # if the item is an mp4
             mp4_count += 1
 
     return mp4_count
 
-
-def convert_seconds(seconds):
+'''
+Converts seconds to Minute:Seconds format
+'''
+def format_seconds(seconds):
     minutes = seconds // 60  
     remaining_seconds = seconds % 60 
     return minutes, remaining_seconds
 
 
-average_rate = calculate_average_rate()
-start_time = datetime.now()
-output_dir_name = "Output Results"
+average_rate = calculate_average_rate() # takes average rate (rate = total processed bytes / seconds the application took) of last 10 runs
+start_time = datetime.now() 
 
-zip_file_path = Select_Zip_File_GUI.zip_path
-output_folder = f'.\\Output' 
+zip_file_path = Select_Zip_File_GUI.zip_path # gets the path to the zip files from the starting GUI file 
+output_folder = f'.\\Output' # the Output directory all the output results will be located
 if not os.path.exists(output_folder):
-    os.makedirs(output_folder)
+    os.makedirs(output_folder) # creates the output folder
 
-root_path = f'{output_folder}\\{output_dir_name} - {find_number_of_output_files() + 1}.'
-zip_file_path = f"{zip_file_path}"
-video_path = f"{root_path}\\MP4"
+output_dir_name = "Output Results" # the name of all output results
+root_path = f'{output_folder}\\{output_dir_name} - {find_number_of_output_files() + 1}.' # root_path: where all the file system integration will take place
+
+video_path = f"{root_path}\\MP4" # where the mp4s from the zip-file will be extracted to 
 if not os.path.exists(video_path):
-    os.makedirs(video_path)
+    os.makedirs(video_path) # created the path the zip-file will extract to
 
-audio_path = f"{root_path}\\Wav" 
+audio_path = f"{root_path}\\Wav" # the directory where the mp4s that convert to wav will be located
 if not os.path.exists(audio_path):
-    os.makedirs(audio_path)
+    os.makedirs(audio_path) # creates the wav directory
 
-text_path = f"{root_path}\\Txt" 
+text_path = f"{root_path}\\Txt" # the directory where the transcripts will be located
 if not os.path.exists(text_path):
-    os.makedirs(text_path)
+    os.makedirs(text_path) # creates the transcript directory
 
-split_audio_folder = f"{root_path}\\Wav\\Split\\" 
-if not os.path.exists(split_audio_folder):
-    os.makedirs(split_audio_folder)
-
-ai_response_folder = f"{root_path}\\AI Script\\"
-if not os.path.exists(ai_response_folder):
-    os.makedirs(ai_response_folder)
-
-with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+with zipfile.ZipFile(zip_file_path, 'r') as zip_ref: # extracts the zip-file
     zip_ref.extractall(video_path)
 
 average_rate = calculate_average_rate() # rate of seconds per byte
-file_size = find_zip_memory(video_path) # size in bytes
-predicted_time = None
-if average_rate:
-    predicted_time = file_size * average_rate
+file_size = find_zip_memory(video_path) # get the size of the toal files being processsed (size in bytes)
 
-current_mp4 = 0
-predicted_time_duration = convert_seconds(predicted_time)
-total_mp4s = (find_total_files(video_path) * 3) + 1 # number of steps, plus the final step 
-extracted_files = os.listdir(video_path)
-progress_thread = threading.Thread(target=run_progress_bar) 
-converting_directory_thread = threading.Thread(target=loop_through_directory,  args=(extracted_files, video_path, "", video_path))
-progress_thread.start()
-converting_directory_thread.start()
-converting_directory_thread.join()
-delete_created_dir(audio_path) 
-total_seconds = find_total_seconds(start_time) 
-store_rate(file_size, total_seconds)
-current_mp4 += 1
-progress_thread.join()
-# OSError: [WinError 6] The handle is invalid
+predicted_time = file_size * average_rate if average_rate else None # the estimated time the program will take
+
+current_step = 0 # !!!!!!!!!!!
+predicted_time_formatted = format_seconds(predicted_time) # formats the predicted time from seconds to Minute:Seconds
+total_steps = (find_total_files(video_path) * 3) + 1 # find the number of mp4 files, times the number of steps (3 steps per mp4), plus the final step (recording the time duration)
+extracted_files = os.listdir(video_path) # lists all the files which were extracted
+progress_bar_thread = threading.Thread(target=run_progress_bar) # thread which runs the progress bar
+convert_thread = threading.Thread(target=loop_through_directory,  args=(extracted_files, video_path, "")) # this thread converts mp4s
+progress_bar_thread.start()
+convert_thread.start()
+convert_thread.join() # ends the convert thread
+delete_created_dir(audio_path) # deletes the Wav directory once it is no longer needed
+total_seconds = find_total_seconds(start_time) # get the total number of seconds the entire application run took 
+store_rate(file_size, total_seconds) # stores the total seconds of the run in the rates.json file
+current_step += 1 #  the final step of the application
+progress_bar_thread.join() # ends the progress bar thread
