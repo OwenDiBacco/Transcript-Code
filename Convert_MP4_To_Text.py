@@ -316,41 +316,48 @@ def write_text(text, folders, filename):
     return file_path
 
 
-def convert_wav_to_text(filename, output_wav_path):
-    print(f'Converting {filename} to text')
-    recognizer = sr.Recognizer()
-    text = ''
-    try:
-        with sr.AudioFile(output_wav_path) as source:
-            audio = recognizer.record(source)
-            text = recognizer.recognize_google(audio)
-
-    except: # add the exception
-        text = split_and_convert_wav(output_wav_path, filename)
-
-    delete_created_files(output_wav_path) 
-    return text
-
-
+'''
+Converts an mp4 file to a wav file
+'''
 def convert_mp4_to_wav(file_path, folders):
     print(f'Converting {file_path} to wav')
     filename = os.path.splitext(os.path.basename(file_path))[0]
-    video = mp.VideoFileClip(file_path)
-    output_wav_path = os.path.join(audio_path, folders)
-    os.makedirs(output_wav_path, exist_ok=True)
+    video = mp.VideoFileClip(file_path) # loading a video to declare it as a variable 
+    output_wav_path = os.path.join(audio_path, folders) 
+    os.makedirs(output_wav_path, exist_ok=True) # creates output wav path
     output_wav_path = os.path.join(output_wav_path, filename + '.wav')
-    video.audio.write_audiofile(output_wav_path)
+    video.audio.write_audiofile(output_wav_path) # stores the wav file at the defined location
     return filename, output_wav_path
 
+'''
+Converts a wav file to a text file
+'''
+def convert_wav_to_text(filename, output_wav_path):
+    print(f'Converting {filename} to text')
+    recognizer = sr.Recognizer() # initialize a speech recognition engine 
+    text = ''
+    try:
+        with sr.AudioFile(output_wav_path) as source: # initializes an AudioFile instance for the specified audio file
+            audio = recognizer.record(source) # gets the audio from the wav file
+            text = recognizer.recognize_google(audio) # recognizes the text from the audio
 
+    except: # if the wav file is too long to be processed
+        text = split_and_convert_wav(output_wav_path, filename) # splits the wav file into chucks to recognize it  
+
+    delete_created_files(output_wav_path) # deletes the wav file because it is no longer needed and wav files take up too much memory 
+    return text
+
+'''
+splits the wav file into chucks in order to convert it to text
+'''
 def split_and_convert_wav(wav_path, filename):
-    split_audio_folder = f"{root_path}\\Wav\\Split\\" # if a wav file is too large, it will need to be split. This is where the split files will be located 
+    split_audio_folder = f"{root_path}\\Wav\\Split\\" # This is where the split files will be located 
     if not os.path.exists(split_audio_folder):
         os.makedirs(split_audio_folder) # creates the split directory if it doesn't yet exist
 
     chunk_text = []
-    audio = AudioSegment.from_wav(wav_path)
-    chunks = split_on_silence(audio, min_silence_len=500, silence_thresh=-40)
+    audio = AudioSegment.from_wav(wav_path) # defines the audio from the wav file
+    chunks = split_on_silence(audio, min_silence_len=500, silence_thresh=-40) # defines an array of segments of audio. The segments are split at silence points
     recognizer = sr.Recognizer()
     split_path = os.path.join(split_path, filename)
     os.makedirs(split_path, exist_ok=True)
@@ -399,27 +406,29 @@ def loop_through_directory(extracted_files, extract_path, folders):
         write_AI_response(response, section_name) # adds the complete worksheet to the AI output directory 
 
 
+'''
+Converts an mp4 file to a wav file, then converts the wav file to a text file
+'''
 def process_file(mp4_file, folder_path, folders):
     global current_step
-    file_path = os.path.join(folder_path, mp4_file)
+    file_path = os.path.join(folder_path, mp4_file) # defines the full path so the operating system can recognize it
     filename, wav = convert_mp4_to_wav(file_path, folders) 
-    current_step += 1 # mp4 converted to wav
-    text = convert_wav_to_text(filename, wav)
+    current_step += 1 # mp4 converted to wav 
+    text = convert_wav_to_text(filename, wav) 
     current_step += 1 # wav converted to text
     write_text(text, folders, filename)
     current_step += 1 # progress the progress bar, text written
 
 
+'''Function creates a thread for each mp4 to be processed'''
 def create_threads_for_mp4_folder(folder_path, folders): # creates a thread for each mp4 in a folder to be processed
     # thread pool: group of pre-instantiated, idle threads 
-    mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
-    def wrapper(mp4_file):
-        return process_file(mp4_file, folder_path, folders)
+    mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')] # gets all the mp4 files in a folder
+    def wrapper(mp4_file): # a wrapper is used to encapsulate other components
+        return process_file(mp4_file, folder_path, folders) # returns the function with predetermined parameters
     
-    with ThreadPoolExecutor() as executor:
-        results = list(executor.map(wrapper, mp4_files))
-
-    return results
+    with ThreadPoolExecutor() as executor: # ThreadPoolExecutor provides ways to manage multiple threads concurrently
+        results = list(executor.map(wrapper, mp4_files)) # creates a list of concurrent threads
 
 
 '''
