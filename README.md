@@ -1,7 +1,8 @@
-# MP4 Transcripter
+# MP4 Transcriber
 
 The objective of this program is to recieve a path to a zip file which should contain mp4 files (this will still work with folders).<br>
 The program will produce a transcript of each mp4 file and a text file containing all the transcripts in the directory named 'All.txt.'<br>
+Optionally, you can create an AI genereated worksheet based off of the represented material. <br>
 
 ## Table of Contents
 
@@ -18,21 +19,21 @@ The program will produce a transcript of each mp4 file and a text file containin
 
 2. Make The Required Installations<br>
 
-All the required pip installations are located below: <br>
-
 ```bash
 pip install -r requirements.txt
 ```
 
 ## How_To_Run_The_Application
 
-1. Run the MP4-Text.py file<br>
-2. Input the necessary file paths:<br>
+1. Run the Convert_MP4_To_Transcript.py file<br>
+2. Input the necessary zip-file path:<br>
 
    a). Select the 'Select Zip Path' button<br>
    b). Select the zip file which contains the mp4's you intend to convert<br>
+   c). Optionally, you can select the checkbox that allows you to create an AI generated worksheet<br>
    
 
 ## When_The_Application_Is_Finished
 
-1. When this is completed, the completed zip file will appear in your downloads folder<br>
+All the file system integration will take place in the 'Output' folder. This is where your extracted mp4, text files and AI generated worksheets will be located.<br>
+
