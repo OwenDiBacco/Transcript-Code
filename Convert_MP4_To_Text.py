@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import time
 import shutil
@@ -215,11 +216,17 @@ def delete_created_dir(delete_path):
 Creates an AI generated worksheet based off Gemini's response
 '''
 def write_AI_response(response, foldername):
+    print(response)
+    print(foldername)
     ai_response_folder = f"{root_path}\\AI Script\\" # creates a directory for the AI worksheet
     if not os.path.exists(ai_response_folder):
         os.makedirs(ai_response_folder) # if the directory doesn't exist, create one 
-
+    
+    print(ai_response_file)
     ai_response_file = os.path.join(ai_response_folder, foldername + ".txt") # defines a variable for the AI generated workseet path
+    if not os.path.exists(ai_response_folder):
+        os.makedirs(ai_response_folder) # if the directory doesn't exist, create one 
+
     f = open(ai_response_file, "w") # creates and opens new txt file
     f.write(response) # writes the AI response to the worksheet
     f.close()
@@ -455,6 +462,25 @@ def format_seconds(seconds):
     return minutes, remaining_seconds
 
 
+def search_output_for_preprocessed_files(video_path, output_folder):
+    def get_filenames(directory):
+        filenames = set()
+        for root, dirs, files in os.walk(directory):
+            for file in files:
+                filenames.add(file)
+        return filenames
+
+    video_files = get_filenames(video_path)
+    output_files = get_filenames(output_folder)
+
+    missing_files = [file for file in video_files if file not in output_files]
+    
+    full_output_paths = [os.path.join(root, file) for root, _, files in os.walk(output_folder) for file in files if file in output_files]
+
+    return not missing_files, missing_files, full_output_paths
+
+
+
 average_rate = calculate_average_rate() # takes average rate (rate = total processed bytes / seconds the application took) of last 10 runs
 start_time = datetime.now() 
 
@@ -490,6 +516,7 @@ current_step = 0 # !!!!!!!!!!!
 predicted_time_formatted = format_seconds(predicted_time) # formats the predicted time from seconds to Minute:Seconds
 total_steps = (find_total_files(video_path) * 3) + 1 # find the number of mp4 files, times the number of steps (3 steps per mp4), plus the final step (recording the time duration)
 extracted_files = os.listdir(video_path) # lists all the files which were extracted
+print(search_output_for_preprocessed_files(video_path, output_folder))
 progress_bar_thread = threading.Thread(target=run_progress_bar) # thread which runs the progress bar
 convert_thread = threading.Thread(target=loop_through_directory,  args=(extracted_files, video_path, "")) # this thread converts mp4s
 progress_bar_thread.start()
