@@ -18,7 +18,16 @@ def open_zip():
             path = os.path.join(path, zip)
 
         path_label.config(text="Zip Path: " + str(path))
+        adjust_window_width(path)
         zip_path = path
+
+'''
+Allows you to see the zip file's entire path
+'''
+def adjust_window_width(path):
+    text_length = len("Zip Path: " + path) * 7  
+    new_width = max(500, text_length)  
+    root.geometry(f"{new_width}x250")
 
 def checkbox_action():
     global checkbox_checked
@@ -32,47 +41,47 @@ def checkbox_action():
 def close_app():
     root.destroy()
 
+
+# create the main window
 root = tk.Tk()
-root.geometry('500x350')
+root.geometry('200x250')
 root.title("File Selector")
-root.configure(bg="#2e2e2e")
 
-title_font = font.Font(family="Helvetica", size=16, weight="bold")
-description_font = font.Font(family="Helvetica", size=12)
-
-style = ttk.Style()
-style.configure("TCheckbutton", font=("Helvetica", 12), foreground="white", background="#2e2e2e", padding=5)
-
+# variables
 ai_script_var = tk.IntVar()
 
+# load and resize the image
 original_image = Image.open('images/zip_icon.png')
 resized_image = original_image.resize((50, 50), Image.LANCZOS)
 zip_icon = ImageTk.PhotoImage(resized_image)
 
-path_label = tk.Label(root, text="", font=description_font, bg="#2e2e2e", fg="white")
-path_label.pack(pady=10)
+# label for file path
+path_label = tk.Label(root, text="", padx=10, pady=10)
+path_label.pack()
 
-zip_button = tk.Button(root, image=zip_icon, command=open_zip, borderwidth=0, bg="#4CAF50", activebackground="#45a049")
-zip_button.pack(pady=20)
+# button to open zip file with image
+zip_button = tk.Button(root, image=zip_icon, command=open_zip, borderwidth=0)
+zip_button.pack(pady=10)
 
-description_label = tk.Label(root, text="Open Zip File", font=title_font, bg="#2e2e2e", fg="white")
-description_label.pack(pady=10)
+# description label
+description_label = tk.Label(root, text="Open Zip File")
+description_label.pack()
 
+# checkbutton for AI script generation
 checkbox = ttk.Checkbutton(
     root,
     text="Generate AI Script",
     variable=ai_script_var,
-    onvalue=1,
-    offvalue=0,
-    style="TCheckbutton",
     command=checkbox_action
 )
 checkbox.pack(pady=10)
 
-status_label = tk.Label(root, text="AI Script Generation: Disabled", font=description_font, fg="red", bg="#2e2e2e")
-status_label.pack(pady=10)
+# status label
+status_label = tk.Label(root, text="AI Script Generation: Disabled")
+status_label.pack()
 
-close_button = tk.Button(root, text="Close", command=close_app, font=description_font, bg="#f44336", fg="white", borderwidth=0, padx=10, pady=5)
+# close button
+close_button = tk.Button(root, text="Run", command=close_app)
 close_button.pack(side=tk.BOTTOM, pady=10)
 
 root.mainloop()
