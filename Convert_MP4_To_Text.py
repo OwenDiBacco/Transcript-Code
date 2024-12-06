@@ -222,7 +222,6 @@ def write_AI_response(response, foldername):
     if not os.path.exists(ai_response_folder):
         os.makedirs(ai_response_folder) # if the directory doesn't exist, create one 
     
-    print(ai_response_file)
     ai_response_file = os.path.join(ai_response_folder, foldername + ".txt") # defines a variable for the AI generated workseet path
     if not os.path.exists(ai_response_folder):
         os.makedirs(ai_response_folder) # if the directory doesn't exist, create one 
@@ -290,6 +289,7 @@ def combine_text_files(folder_path, output_file_name):
 
                 for filename in os.listdir(folder_path): # lists all the files from the folder path
                     if filename.endswith(".txt") and str(file_iterations) in filename: # file is a text file and is next in the iteration
+                        print("filename ", filename)
                         recorded.append(filename) # adds the file to the array of recored files
                         file_path = os.path.join(folder_path, filename) # creates the entire file path so the os system can recognize it
                         with open(file_path, 'r') as infile: # reads the text file and writes it to the combine text file
@@ -348,7 +348,7 @@ def convert_wav_to_text(filename, output_wav_path):
             audio = recognizer.record(source) # gets the audio from the wav file
             text = recognizer.recognize_google(audio) # recognizes the text from the audio
 
-    except: # if the wav file is too long to be processed
+    except sr.exceptions.RequestError as e: # if the wav file is too long to be processed; bad request
         text = split_and_convert_wav(output_wav_path, filename) # splits the wav file into chucks to recognize it  
 
     delete_created_files(output_wav_path) # deletes the wav file because it is no longer needed and wav files take up too much memory 
@@ -366,7 +366,7 @@ def split_and_convert_wav(wav_path, filename):
     audio = AudioSegment.from_wav(wav_path) # defines the audio from the wav file
     chunks = split_on_silence(audio, min_silence_len=500, silence_thresh=-40) # defines an array of segments of audio. The segments are split at silence points
     recognizer = sr.Recognizer()
-    split_path = os.path.join(split_path, filename)
+    split_path = os.path.join(split_audio_folder, filename)
     os.makedirs(split_path, exist_ok=True)
     for i, chunk in enumerate(chunks):
         full_wav_path = os.path.join(split_path, f"chunk{i+1}.wav")
@@ -431,11 +431,18 @@ def process_file(mp4_file, folder_path, folders):
 def create_threads_for_mp4_folder(folder_path, folders): # creates a thread for each mp4 in a folder to be processed
     # thread pool: group of pre-instantiated, idle threads 
     mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')] # gets all the mp4 files in a folder
-    def wrapper(mp4_file): # a wrapper is used to encapsulate other components
-        return process_file(mp4_file, folder_path, folders) # returns the function with predetermined parameters
-    
-    with ThreadPoolExecutor() as executor: # ThreadPoolExecutor provides ways to manage multiple threads concurrently
-        results = list(executor.map(wrapper, mp4_files)) # creates a list of concurrent threads
+    mp4_files = [mp4_files[i:i+5] for i in range(0, len(mp4_files), 5)] # make each array in the 2d array only contain 5 elements to avoid timeout
+
+    print("")
+    print(mp4_files)
+    print("")
+
+    for segment in mp4_files:
+        def wrapper(mp4_file): # a wrapper is used to encapsulate other components
+            return process_file(mp4_file, folder_path, folders) # returns the function with predetermined parameters
+
+        with ThreadPoolExecutor() as executor: # ThreadPoolExecutor provides ways to manage multiple threads concurrently
+            results = list(executor.map(wrapper, segment)) # creates a list of concurrent threads
 
 
 '''

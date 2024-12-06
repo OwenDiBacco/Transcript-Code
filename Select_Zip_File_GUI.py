@@ -20,6 +20,7 @@ def open_zip():
         path_label.config(text="Zip Path: " + str(path))
         adjust_window_width(path)
         zip_path = path
+        
 
 '''
 Allows you to see the zip file's entire path
@@ -49,6 +50,7 @@ root.title("File Selector")
 
 # variables
 ai_script_var = tk.IntVar()
+checkbox_checked = False
 
 # load and resize the image
 original_image = Image.open('images/zip_icon.png')
