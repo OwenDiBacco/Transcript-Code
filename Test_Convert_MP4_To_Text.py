@@ -3,12 +3,12 @@ Not really sure how to implement unit tests in a program like this
 '''
 
 import unittest
-import Convert_MP4_To_Text
+import Convert_MP4_To_Text as ct
 
 class TestStringMethods(unittest.TestCase):
 
     def test_upper(self):
-        self.assertEqual('foo'.upper(), 'FOO')
+        self.assertEqual(ct.create_threads_for_mp4_folder(), 'FOO')
 
     def test_isupper(self):
         self.assertTrue('FOO'.isupper())

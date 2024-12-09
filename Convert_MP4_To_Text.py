@@ -424,7 +424,7 @@ def process_file(mp4_file, folder_path, folders):
     text = convert_wav_to_text(filename, wav) 
     current_step += 1 # wav converted to text
     write_text(text, folders, filename)
-    current_step += 1 # progress the progress bar, text written
+    current_step += 1 # progress the progress bar, text written 
 
 
 '''Function creates a thread for each mp4 to be processed'''
@@ -433,16 +433,15 @@ def create_threads_for_mp4_folder(folder_path, folders): # creates a thread for 
     mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')] # gets all the mp4 files in a folder
     mp4_files = [mp4_files[i:i+5] for i in range(0, len(mp4_files), 5)] # make each array in the 2d array only contain 5 elements to avoid timeout
 
-    print("")
-    print(mp4_files)
-    print("")
-
     for segment in mp4_files:
         def wrapper(mp4_file): # a wrapper is used to encapsulate other components
             return process_file(mp4_file, folder_path, folders) # returns the function with predetermined parameters
 
         with ThreadPoolExecutor() as executor: # ThreadPoolExecutor provides ways to manage multiple threads concurrently
             results = list(executor.map(wrapper, segment)) # creates a list of concurrent threads
+
+    print("results, ", results)
+
 
 
 '''
@@ -470,21 +469,34 @@ def format_seconds(seconds):
 
 
 def search_output_for_preprocessed_files(video_path, output_folder):
-    def get_filenames(directory):
-        filenames = set()
+    def walk_through_directory(directory, filenames):
         for root, dirs, files in os.walk(directory):
             for file in files:
-                filenames.add(file)
+                filename = file.split()[0]
+                filenames.append(filename)  # Append the filename to the list
+
+            for dir in dirs:
+                path = os.path.join(root, dir)  # Use root, not directory
+                filenames = walk_through_directory(path, filenames)  # Recurse without overwriting the list
+
+            
+        print(filenames)
         return filenames
 
-    video_files = get_filenames(video_path)
-    output_files = get_filenames(output_folder)
-
-    missing_files = [file for file in video_files if file not in output_files]
+    video_files = walk_through_directory(video_path, [])    
     
-    full_output_paths = [os.path.join(root, file) for root, _, files in os.walk(output_folder) for file in files if file in output_files]
+    output_folder_instances = os.listdir(output_folder)
+    files_in_all_outputs = []
+    for instance in output_folder_instances:
+        path = os.path.join(output_folder, instance)
+        files_in_all_outputs.extend(walk_through_directory(path, []))
 
-    return not missing_files, missing_files, full_output_paths
+
+    print("video_files", video_files)
+    print("output_files", output_folder_instances)
+
+
+    return 
 
 
 
