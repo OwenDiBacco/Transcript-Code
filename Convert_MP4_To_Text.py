@@ -469,35 +469,111 @@ def format_seconds(seconds):
 
 
 def search_output_for_preprocessed_files(video_path, output_folder):
-    def walk_through_directory(directory, filenames):
+    def walk_through_directory(directory, file_names):
+        process_files = True 
         for root, dirs, files in os.walk(directory):
-            for file in files:
-                filename = file.split()[0]
-                filenames.append(filename)  # Append the filename to the list
+            if text_directory_name in dirs: # directory_path: # it is inside a sub directory within the txt directory
+                directory_path = os.path.join(root, text_directory_name)
+                file_names.extend(walk_through_directory(directory_path, [])) 
+                process_files = False 
+                
+            if wav_directory_name in dirs: 
+                directory_path = os.path.join(root, wav_directory_name)
+                wav_file_names = walk_through_directory(directory_path, []) 
+                process_files = False 
+                file_names_names  = [item["file_name"] for item in file_names]
+                for wav_file in wav_file_names:
+                    wav_file_name = wav_file.get('file_name')
+                    if wav_file_name not in file_names_names:
+                        file_names.append(wav_file)
 
-            for dir in dirs:
-                path = os.path.join(root, dir)  # Use root, not directory
-                filenames = walk_through_directory(path, filenames)  # Recurse without overwriting the list
-
-            
-        print(filenames)
-        return filenames
-
-    video_files = walk_through_directory(video_path, [])    
+            if mp4_directory_name in dirs:
+                directory_path = os.path.join(root, mp4_directory_name)
+                mp4_file_names = walk_through_directory(directory_path, []) 
+                process_files = False 
+                file_names_names  = [item["file_name"] for item in file_names]
+                for mp4_file in mp4_file_names:
+                    mp4_file_name = mp4_file.get('file_name')
+                    if mp4_file_name not in file_names_names:
+                        file_names.append(mp4_file)
     
+            if process_files:
+                for file in files:
+                    filename_segments = file.split('.')
+                    file_name = " ".join(map(str, filename_segments[:-1])) # everything in the name except the extension
+                    file_path = os.path.join(root, file_name)
+                    if file_name != '':
+                        file_elements = {
+                            'file_name': file_name, 
+                            'file_path': file_path
+                        }
+                        file_names.append(file_elements) 
+
+        # print('files: ', filenames)
+        return file_names
+    
+    def compare_arrays(video_files_array, output_files_array):
+        video_files_array_copy = video_files_array[:]
+        output_files_array_copy = output_files_array[:]
+
+        files_to_process = []
+
+        for item1 in video_files_array[:]:
+            if 'file_name' in item1:
+                for item2 in output_files_array_copy:
+                    if 'file_name' in item2 and item1['file_name'] == item2['file_name']:
+                        output_files_array_copy.remove(item2) 
+                        video_files_array_copy.remove(item1) 
+                        if wav_directory_name in item1['file_path'] or mp4_directory_name in item1['file_path']:
+                            files_to_process.append(item1)
+                            
+                            break
+        
+        # print('1: ', video_files_array_copy, ' 2.', output_files_array_copy)
+        # if not video_files_array_copy: # if all the files from the selected zip are in the output folder
+
+        files_to_process = files_to_process + video_files_array_copy # combines the semi-processed wavs and mp4s with the video files that are not in the output at all
+        return video_files_array
+
+    def print_elements(elements):
+        for e in elements:
+            print(e.get('file_name'))
+            print(e.get('file_path'))
+            print('')
+
+    video_files = walk_through_directory(video_path, [])
+    
+    process_cache = {
+        'directory-name': None,
+        'length': float('inf'),
+        'files': []
+    }
+
     output_folder_instances = os.listdir(output_folder)
-    files_in_all_outputs = []
     for instance in output_folder_instances:
         path = os.path.join(output_folder, instance)
-        files_in_all_outputs.extend(walk_through_directory(path, []))
+        file_name = os.path.basename(path)
+        print('instance: ', file_name)
+        files_in_instance_directory = walk_through_directory(path, [])
+        # video: zip
+        # Output: output 
+        # print('v', video_files, ' ', 'o', files_in_instance_directory)
+        files_left_to_process = compare_arrays(video_files, files_in_instance_directory)
+        length = len(files_left_to_process)
+        if length < process_cache.get('length'):
+            process_cache['directory-name'] = file_name
+            process_cache['files'] = files_left_to_process
+            process_cache['length'] = length
 
-
-    print("video_files", video_files)
-    print("output_files", output_folder_instances)
+    print('')
+    print('name ', process_cache['directory-name'])
+    print('len ', process_cache['length'])
+    print('files: ')
+    for file in process_cache['files']:
+        print(file)
 
 
     return 
-
 
 
 average_rate = calculate_average_rate() # takes average rate (rate = total processed bytes / seconds the application took) of last 10 runs
@@ -511,15 +587,18 @@ if not os.path.exists(output_folder):
 output_dir_name = "Output Results" # the name of all output results
 root_path = f'{output_folder}\\{output_dir_name} - {find_number_of_output_files() + 1}.' # root_path: where all the file system integration will take place
 
-video_path = f"{root_path}\\MP4" # where the mp4s from the zip-file will be extracted to 
+mp4_directory_name = 'MP4'
+video_path = f"{root_path}\\{mp4_directory_name}" # where the mp4s from the zip-file will be extracted to 
 if not os.path.exists(video_path):
     os.makedirs(video_path) # created the path the zip-file will extract to
 
-audio_path = f"{root_path}\\Wav" # the directory where the mp4s that convert to wav will be located
+wav_directory_name = 'Wav'
+audio_path = f"{root_path}\\{wav_directory_name}" # the directory where the mp4s that convert to wav will be located
 if not os.path.exists(audio_path):
     os.makedirs(audio_path) # creates the wav directory
 
-text_path = f"{root_path}\\Txt" # the directory where the transcripts will be located
+text_directory_name = 'Txt'
+text_path = f"{root_path}\\{text_directory_name}" # the directory where the transcripts will be located
 if not os.path.exists(text_path):
     os.makedirs(text_path) # creates the transcript directory
 
