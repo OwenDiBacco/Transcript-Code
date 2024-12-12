@@ -203,12 +203,12 @@ def find_total_seconds(start_time):
 
 
 def delete_created_files(delete_path):
-    print(f'Creating {delete_path}.txt')
+    print(f'deleting {delete_path}')
     os.remove(delete_path)
     
 
 def delete_created_dir(delete_path):
-    print(f'Creating {delete_path}.txt')
+    print(f'deleting {delete_path}')
     shutil.rmtree(delete_path)
 
 
@@ -329,7 +329,11 @@ def convert_mp4_to_wav(file_path, folders):
     print(f'Converting {file_path} to wav')
     filename = os.path.splitext(os.path.basename(file_path))[0]
     video = mp.VideoFileClip(file_path) # loading a video to declare it as a variable 
-    output_wav_path = os.path.join(audio_path, folders) 
+    output_wav_path = audio_path
+    for folder in folders:
+        output_wav_path = os.path.join(output_wav_path, folder) 
+
+    print('output_wav_path: ', output_wav_path)
     os.makedirs(output_wav_path, exist_ok=True) # creates output wav path
     output_wav_path = os.path.join(output_wav_path, filename + '.wav')
     video.audio.write_audiofile(output_wav_path) # stores the wav file at the defined location
@@ -405,6 +409,10 @@ def loop_through_directory_original(extract_path, folders):
     create_threads_for_mp4_folder(folder_path, folders) # process all the files concurrently for efficency 
     txt_directory = os.path.join(text_path, folders) # creates specific text output directory for the specific directory
     combined_text_file = combine_text_files(txt_directory, "All") # combines all the text files in a directory into one file
+    document_AI_response(combined_text_file)
+
+def document_AI_response(combined_text_file):
+    folders = None # FIX FOLDERS LATER!!!!!!!!!!!
     if combined_text_file != None and Select_Zip_File_GUI.checkbox_checked: # checks if the user checked the box for AI worksheet creation
         content = ''
         with open(combined_text_file, 'r') as file:
@@ -419,36 +427,41 @@ def loop_through_directory_original(extract_path, folders):
 
 
 def loop_through_directory():
-    print('inside: loop_through_directory')
-    files_to_progress_dict = search_output_for_preprocessed_files(video_path, output_folder) 
+    files_to_procress_dict = search_output_for_preprocessed_files(video_path, output_folder) 
     folders = ''
-    instance_to_copy_with_preprocessed_files = files_to_progress_dict['directory-name']
+    instance_to_copy_with_preprocessed_files = files_to_procress_dict['directory-name']
     instance_to_copy_with_preprocessed_files_txt_directory = os.path.join(output_folder, instance_to_copy_with_preprocessed_files, text_directory_name)
     copy_directory(instance_to_copy_with_preprocessed_files_txt_directory, text_path) # directory to copy, destination
-    print('files to progress: ', files_to_progress_dict)
-    files_to_progress = files_to_progress_dict['files']
-    create_threads_for_mp4_folder(files_to_progress, video_path, folders) # ignoring folders for now
-    
+    print('files to progress: ', files_to_procress_dict)
+    files_to_process = files_to_procress_dict['files']
+    create_threads_for_mp4_folder(files_to_process, video_path, folders) # ignoring folders for now
+
 
 '''
 Converts an mp4 file to a wav file, then converts the wav file to a text file
 '''
 def process_file(file, folder_path, folders): # ignoring folder_path for now 
     global current_step
+    print('file dir: ', file)
+    print('folders: ', folders)
+    folders = file['directories']
+    file = file['file_path']
     if mp4_directory_name in file: # the path is included if it comes from the preprocessed function 
         # is an mp4 from preprocessed function
-        mp4_file_path = file
+        mp4_file_path = file 
+        print('mp4_file_path: ', mp4_file_path, ' folders: ', folders)
         print('proc mp4: ', mp4_file_path)
         filename, wav_file_path = convert_mp4_to_wav(mp4_file_path, folders) 
         current_step += 1 # mp4 converted to wav 
         text = convert_wav_to_text(filename, wav_file_path) 
         current_step += 1 # wav converted to text
+        
         write_text(text, folders, filename)
         current_step += 1 # progress the progress bar, text written 
 
     elif wav_directory_name in file:
         # is a wav from the preprocessed function
-        wav_file_path = file
+        wav_file_path = file 
         file_name = os.path.basename(wav_file_path)
         text = convert_wav_to_text(file_name, wav_file_path) 
         current_step += 1 # wav converted to text
@@ -477,20 +490,16 @@ def create_threads_for_mp4_folder_original(folder_path, folders): # creates a th
             return process_file(mp4_file, folder_path, folders) # returns the function with predetermined parameters
 
         with ThreadPoolExecutor() as executor: # ThreadPoolExecutor provides ways to manage multiple threads concurrently
-            results = list(executor.map(wrapper, segment)) # creates a list of concurrent threads
-
-    print("results, ", results)
+            list(executor.map(wrapper, segment)) # creates a list of concurrent threads
 
 
 def create_threads_for_mp4_folder(files_to_process, folder_path, folders): # creates a thread for each mp4 in a folder to be processed
-    files_to_process_paths = [item['file_path'] for item in files_to_process]
     def wrapper(file): # a wrapper is used to encapsulate other components
         return process_file(file, folder_path, folders) # returns the function with predetermined parameters
 
     with ThreadPoolExecutor() as executor: # ThreadPoolExecutor provides ways to manage multiple threads concurrently
-        results = list(executor.map(wrapper, files_to_process_paths)) # creates a list of concurrent threads
+        list(executor.map(wrapper, files_to_process)) # creates a list of concurrent threads
 
-    print("results, ", results)
 
 
 '''
@@ -518,48 +527,6 @@ def format_seconds(seconds):
 
 
 def search_output_for_preprocessed_files(video_path, output_folder):
-    def walk_through_directory(directory, file_names):
-        process_files = True 
-        for root, dirs, files in os.walk(directory):
-            if text_directory_name in dirs: # directory_path: # it is inside a sub directory within the txt directory
-                directory_path = os.path.join(root, text_directory_name)
-                file_names.extend(walk_through_directory(directory_path, [])) 
-                process_files = False 
-                
-            if wav_directory_name in dirs: 
-                directory_path = os.path.join(root, wav_directory_name)
-                wav_file_names = walk_through_directory(directory_path, []) 
-                process_files = False 
-                file_names_names  = [item["file_name"] for item in file_names]
-                for wav_file in wav_file_names:
-                    wav_file_name = wav_file.get('file_name')
-                    if wav_file_name not in file_names_names:
-                        file_names.append(wav_file)
-
-            if mp4_directory_name in dirs:
-                directory_path = os.path.join(root, mp4_directory_name)
-                mp4_file_names = walk_through_directory(directory_path, []) 
-                process_files = False 
-                file_names_names  = [item["file_name"] for item in file_names]
-                for mp4_file in mp4_file_names:
-                    mp4_file_name = mp4_file.get('file_name')
-                    if mp4_file_name not in file_names_names:
-                        file_names.append(mp4_file)
-    
-            if process_files:
-                for file in files:
-                    filename_segments = file.split('.')
-                    file_name = " ".join(map(str, filename_segments[:-1])) # everything in the name except the extension
-                    file_path = os.path.join(directory, file_name) # 
-                    if file_name != '':
-                        file_elements = {
-                            'file_name': file_name, 
-                            'file_path': file_path
-                        }
-                        file_names.append(file_elements) 
-
-        return file_names
-    
     def compare_arrays(video_files_array, output_files_array):
         video_files_array_copy = video_files_array[:]
         output_files_array_copy = output_files_array[:]
@@ -576,6 +543,7 @@ def search_output_for_preprocessed_files(video_path, output_folder):
                             partially_processed_files.append(item2)
                             break
         
+        print('partial: ', partially_processed_files, ' total: ', video_files_array_copy)
         return partially_processed_files + video_files_array_copy
     
     video_files = walk_through_directory(video_path, []) # the files we are searching for in the outputs
@@ -587,12 +555,14 @@ def search_output_for_preprocessed_files(video_path, output_folder):
     }
 
     output_folder_instances = os.listdir(output_folder)
+    print('output_folder_instances: ', output_folder_instances)
     for instance in output_folder_instances:
+        file_name = instance
         path = os.path.join(output_folder, instance)
-        file_name = os.path.basename(path)
+        print('output instance path: ', path)
         files_in_instance_directory = walk_through_directory(path, []) # gets all the files for each output folder
-        files_left_to_process = compare_arrays(video_files, files_in_instance_directory)
-        length = len(files_left_to_process)
+        files_left_to_process = compare_arrays(video_files, files_in_instance_directory) # limits the files to process to only the ones that need totally processed or are partially processed
+        length = len(files_left_to_process) # number of files to process
         if length < progress_cache.get('length'):
             progress_cache['directory-name'] = file_name
             progress_cache['files'] = files_left_to_process
@@ -600,6 +570,42 @@ def search_output_for_preprocessed_files(video_path, output_folder):
 
 
     return progress_cache
+
+
+def walk_through_directory(directory, directories): # directories
+    file_names = []
+    process_files = True 
+    for root, dirs, files in os.walk(directory):
+        # print('dirs: ', dirs if dirs != [] else None)
+        # print('files: ', files if files != [] else None)  
+        for dir in dirs:
+            directory_path = os.path.join(root, dir)
+            d = directories
+            d.append(dir)
+            directory_file_names = walk_through_directory(directory_path, d)
+            process_files = False 
+            existing_file_names = [item["file_name"] for item in file_names]
+            for directory_file in directory_file_names:
+                directory_file_name = directory_file.get('file_name')
+                if directory_file_name not in existing_file_names:
+                    file_names.append(directory_file)
+
+
+        if process_files:
+            for file in files:
+                print('directory: ', directory, 'files : ', file)
+                filename_segments = file.split('.')
+                file_name = " ".join(map(str, filename_segments[:-1])) # everything in the name except the extension
+                file_path = os.path.join(directory, file) # 
+                if file_name != '':
+                    file_elements = {
+                        'file_name': file_name, 
+                        'file_path': file_path,
+                        'directories': directories
+                    }
+                    file_names.append(file_elements) 
+
+    return file_names
 
 
 def copy_directory(output_instance, current_output_instance): # or directory to copy, destination
@@ -644,7 +650,6 @@ predicted_time = file_size * average_rate if average_rate else None # the estima
 current_step = 0 # !!!!!!!!!!!
 predicted_time_formatted = format_seconds(predicted_time) # formats the predicted time from seconds to Minute:Seconds
 total_steps = (find_total_files(video_path) * 3) + 1 # find the number of mp4 files, times the number of steps (3 steps per mp4), plus the final step (recording the time duration)
-# print(search_output_for_preprocessed_files(video_path, output_folder))
 progress_bar_thread = threading.Thread(target=run_progress_bar) # thread which runs the progress bar
 convert_thread = threading.Thread(target=loop_through_directory) # this thread converts mp4s
 progress_bar_thread.start()
