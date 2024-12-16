@@ -1,49 +1,5 @@
 {
     "rates": [
-        {
-            "file_size_bytes": 78663368,
-            "processing_time_seconds": 0.430523,
-            "rate": 5.472979494089295e-09
-        },
-        {
-            "file_size_bytes": 78663368,
-            "processing_time_seconds": 0.451274,
-            "rate": 5.7367744538982876e-09
-        },
-        {
-            "file_size_bytes": 78663368,
-            "processing_time_seconds": 0.435802,
-            "rate": 5.54008824031028e-09
-        },
-        {
-            "file_size_bytes": 78663368,
-            "processing_time_seconds": 0.440739,
-            "rate": 5.602849346598025e-09
-        },
-        {
-            "file_size_bytes": 78663368,
-            "processing_time_seconds": 0.469911,
-            "rate": 5.973695405464969e-09
-        },
-        {
-            "file_size_bytes": 78663368,
-            "processing_time_seconds": 0.43059,
-            "rate": 5.47383122471949e-09
-        },
-        {
-            "file_size_bytes": 78663368,
-            "processing_time_seconds": 0.454168,
-            "rate": 5.773564132163779e-09
-        },
-        {
-            "file_size_bytes": 78663368,
-            "processing_time_seconds": 0.539988,
-            "rate": 6.864542082662924e-09
-        },
-        {
-            "file_size_bytes": 78663368,
-            "processing_time_seconds": 0.473931,
-            "rate": 6.024799243276744e-09
-        }
+        
     ]
 }
