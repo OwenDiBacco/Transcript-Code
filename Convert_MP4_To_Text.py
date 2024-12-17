@@ -120,7 +120,13 @@ def run_progress_bar():
     app = ProgressBarApp(root) # create ProgressBarApp instance
 
     def progress_update(): # function updates the progress bar
-        remaining_time = update_countdown(predicted_time_formatted) # update the predicted time remaining
+        if False: # the process of finding rates doesn't work well with the finding pre-processed files functionality
+            # Not accessed
+            remaining_time = update_countdown(predicted_time_formatted) # update the predicted time remaining
+        
+        else:
+            remaining_time = ''
+
         app.estimated_time.config(text=f'{remaining_time}') # display the predicted time remaining
         app.display_mario() # displays the updated frame in the gif animation, doesn't affect position at all
         progressing = app.update_progress(current_step, total_steps, window_width) # if the progress bar is still running
@@ -179,19 +185,15 @@ def store_rate(file_size, processing_time, json_file="rates.json"):
         json.dump(data, file, indent=4)
         
 
-def load_rates(json_file="rates.json"):
-    if os.path.exists(json_file):
-        with open(json_file, 'r') as file:
-            data = json.load(file)
-        return data["rates"]
-    else:
-        return []
-    
-
 '''
 returns the average rate (rate = total bytes being processed / seconds it took the application to run) based on the last 10 runs
 ''' 
 def calculate_average_rate(json_file="rates.json"): 
+    def load_rates(json_file="rates.json"):
+        with open(json_file, 'r') as file:
+            data = json.load(file)
+        return data["rates"]
+    
     rates = load_rates(json_file)
     if rates:
         total_rate = sum([entry["rate"] for entry in rates])
@@ -217,7 +219,12 @@ def delete_created_dir(delete_path):
 Creates an AI generated worksheet based off Gemini's response
 '''
 def write_AI_response(response, file_name, directories):
-    ai_response_folder = os.path.join(root_path, directories, ai_script_name)
+    if directories is not None:
+        ai_response_folder = os.path.join(root_path, directories, ai_script_name)
+
+    else:
+        ai_response_folder = os.path.join(root_path, ai_script_name)
+
     if not os.path.exists(ai_response_folder):
         os.makedirs(ai_response_folder) # if the directory doesn't exist, create one 
     
@@ -235,7 +242,7 @@ Finds the total memory of all the mp4s being processed
 '''
 def find_zip_memory(directory):
     total_size = 0
-    for dirpath, dirnames, filenames in os.walk(directory): # iterates over the specified directory and its subdirectories.
+    for dirpath, _, filenames in os.walk(directory): # iterates over the specified directory and its subdirectories.
         for filename in filenames: # loops through all the files (mp4s) in the directory
             file_path = os.path.join(dirpath, filename) # gets the total path script, so os can recognize it
             file_size = os.path.getsize(file_path) # gets the size of the specific file
@@ -256,15 +263,17 @@ def contains_text_files(directory_path):
 def find_current_output_instance():
     files = os.listdir(output_folder)
     iteration = 1
-    for file in files:
-        if str(iteration) in file:
-            iteration += 1
+    while True:
+        found = False
+        for file in files:
+            if str(iteration) in file: 
+                iteration += 1
+                found = True
 
-        else:
-            break
+        if found:
+            return iteration 
 
-    return iteration 
-
+    
 '''
 Combines all the text files in a directory into one text file
 '''
@@ -302,18 +311,22 @@ def combine_text_files(folder_path, output_file_name):
         return None # returns nothing if there are no text files in the directory
 
 
-def write_text(text, folders, filename):
-    filenames = filename.split('.')
-    if filenames[0].isdigit():
-        if int(filenames[0]) < 10:
-            filename = f'0{filenames[0]}. {filenames[1]}'
+def write_text(text, folders, file_name):
+    file_names = file_name.split('.')
+    if file_names[0].isdigit():
+        if int(file_names[0]) < 10:
+            file_name = f'0{file_names[0]}. {file_names[1]}'
         else:
-            filename = f'{filenames[0]}. {filenames[1]}'
+            file_name = f'{file_names[0]}. {file_names[1]}'
 
-    text_file_path = os.path.join(text_file_path, folders)
+    if folders is not None:
+        text_file_path = os.path.join(text_path, folders)
+    
+    else:
+        text_file_path = text_path
 
     os.makedirs(text_file_path, exist_ok=True)
-    with open(os.path.join(text_file_path, filename + ".txt"), "w") as txt_file:
+    with open(os.path.join(text_file_path, file_name + ".txt"), "w") as txt_file:
         txt_file.write(text)
     
     return text_file_path
@@ -391,31 +404,38 @@ def document_AI_response(combined_text_file, directories):
             content += file.read() # reads in the prompt from prompt.txt to input into Gemini
 
         response = Create_Notes_From_AI.prompt_genai(content) # records the response from the Gemini prompt
-        lowest_directory_name = os.path.basename(os.path.normpath(directories))
-        section_name = lowest_directory_name + ' AI'
-        write_AI_response(response, section_name) # adds the complete worksheet to the AI output directory 
+        if directories is not None:
+            ai_file_name = os.path.basename(os.path.normpath(directories))
+
+        else: 
+            ai_file_name = 'ai response file'
+
+        section_name = ai_file_name + ' AI'
+        write_AI_response(response, section_name, directories) # adds the complete worksheet to the AI output directory 
 
 
 def process_directory(directory_path, directories):
     files_to_procress_dict = search_output_for_preprocessed_files(directory_path, output_folder)['files']  
-    print('files to process: ', files_to_procress_dict)
-    text_files_dict, files_to_procress_dict = get_text_files(files_to_procress_dict)
-    if text_files_dict:
-        
-        text_files_paths = [d['file_path'] for d in text_files_dict if 'file_paths' in d]
-        print('text file: ', text_files_paths) 
-        output_txt_directory = os.path.join(root_path, text_directory_name, directories)
-        copy_files_to_directory(text_files_paths, output_txt_directory)
+    if files_to_procress_dict:
+        text_files_dict, files_to_procress_dict = get_text_files(files_to_procress_dict)
+        if text_files_dict:
+            text_files_paths = [d['file_path'] for d in text_files_dict]
+            if directories is not None:
+                output_txt_directory = os.path.join(root_path, text_directory_name, directories)
+
+            else:
+                output_txt_directory = os.path.join(root_path, text_directory_name)
+
+            copy_files_to_directory(text_files_paths, output_txt_directory)
 
     combined_text_file = create_threads_for_files_in_directory(files_to_procress_dict, directories) 
-    document_AI_response(combined_text_file)
+    document_AI_response(combined_text_file, directories)
 
 
 def get_text_files(files):
     txt_files = []
     files_to_process = []
     for file in files:
-        print('type: ', file)
         if file['file_type'] == 'txt':
             txt_files.append(file)
         else:
@@ -429,7 +449,12 @@ def process_extracted_content(directory_path, directories):
     for root, dirs, _ in os.walk(directory_path):
         for dir in dirs:
             sub_directory_path = os.path.join(root, dir)
-            sub_directories = os.path.join(directories, dir)
+            if directories is not None:
+                sub_directories = os.path.join(directories, dir)
+            
+            else:
+                sub_directories = dir
+
             process_directory(sub_directory_path, sub_directories)
 
 
@@ -444,14 +469,11 @@ def process_file(file, directories): # only mp4s and wavs are in this function
         file_name, wav_file_path = convert_mp4_to_wav(mp4_file_path, directories) 
 
     else: 
-        wav_file_path = file['path']
+        wav_file_path = file['file_path']
 
-    current_step += 1 # mp4 converted to wav 
     text = convert_wav_to_text(file_name, wav_file_path) 
-    current_step += 1 # wav converted to text
     write_text(text, directories, file_name)
-    current_step += 1 # progress the progress bar, text written 
-
+    progress_step(1) # the file is completly processed
 
 
 def create_threads_for_files_in_directory(files_to_process, directories): # creates a thread for each mp4 in a folder to be processed
@@ -461,15 +483,27 @@ def create_threads_for_files_in_directory(files_to_process, directories): # crea
     with ThreadPoolExecutor() as executor: # ThreadPoolExecutor provides ways to manage multiple threads concurrently
         list(executor.map(wrapper, files_to_process)) # creates a list of concurrent threads
     
-    output_text_file_path = os.path.join(root_path, directories, text_directory_name)
+    if directories is not None:
+        output_text_file_path = os.path.join(root_path, directories, text_directory_name)
+
+    else:
+
+        output_text_file_path = os.path.join(root_path, text_directory_name)
+        
     combined_text_file_name = 'all'
-    combined_file_path = combine_text_files(output_text_file_path, combined_text_file_name)
+    if os.path.exists(output_text_file_path):
+        combined_file_path = combine_text_files(output_text_file_path, combined_text_file_name)
+
+    else:
+        combined_file_path = None
+
     return combined_file_path
 
 
 
 '''
 Returns the number of mp4 files are in a specific folder
+Needs to remain as is because the files in each sub directory are not known until they are processed
 '''
 def find_total_files(folder):
     mp4_count = 0
@@ -482,6 +516,12 @@ def find_total_files(folder):
             mp4_count += 1
 
     return mp4_count
+
+
+def progress_step(increment):
+    global current_step
+    current_step += increment
+
 
 '''
 Converts seconds to Minute:Seconds format
@@ -540,7 +580,6 @@ def search_output_for_preprocessed_files(video_path, output_folder):
     all_output_files = find_all_files(output_folder)
     most_processed_output_versions = find_most_processed_version(all_output_files)
     files_left_to_process = compare_arrays(video_files, most_processed_output_versions) # limits the files to process to only the ones that need totally processed or are partially processed
-    print('files left: ', files_left_to_process)
     length = len(files_left_to_process) # number of files to process
     if length < progress_cache.get('length'):
         progress_cache['directory-name'] = 'filenem '
@@ -581,6 +620,8 @@ def create_file_dict(file, directory):
     file_name = " ".join(map(str, filename_segments[:-1])) # everything in the name except the extension
     file_path = os.path.join(directory, file) 
     
+    file_type = ''
+
     if mp4_directory_name in file_path:
         file_type = 'mp4'
     elif wav_directory_name in file_path:
@@ -598,10 +639,10 @@ def create_file_dict(file, directory):
 
 
 def copy_files_to_directory(txt_files, current_output_instance_txt_directory): 
-    # shutil.copytree(output_instance, current_output_instance, dirs_exist_ok=True)
+    # shutil.copytree(output_instance, current_output_instance, dirs_exist_ok=True) 
     for file in txt_files:
         shutil.copy(file, current_output_instance_txt_directory)
-
+        progress_step(1) # the file is completly processed
 
 average_rate = calculate_average_rate() # takes average rate (rate = total processed bytes / seconds the application took) of last 10 runs
 start_time = datetime.now() 
@@ -640,14 +681,15 @@ file_size = find_zip_memory(video_path) # get the size of the toal files being p
 
 predicted_time = file_size * average_rate if average_rate else None # the estimated time the program will take
 
-current_step = 0 # !!!!!!!!!!!
+current_step = 0
+
 if predicted_time != None:
     predicted_time_formatted = format_seconds(predicted_time) # formats the predicted time from seconds to Minute:Seconds
 
 else:
-    predicted_time_formatted = '?'
+    predicted_time_formatted = None
 
-total_steps = (find_total_files(video_path) * 3) + 1 # find the number of mp4 files, times the number of steps (3 steps per mp4), plus the final step (recording the time duration)
+total_steps = (find_total_files(video_path) + 1) # find the number of mp4 files, plus the final step (recording the time duration)
 progress_bar_thread = threading.Thread(target=run_progress_bar) # thread which runs the progress bar
 convert_thread = threading.Thread(target=process_extracted_content, args=(video_path, None)) # this thread converts mp4s, start the process with the extracted zip
 progress_bar_thread.start()
@@ -655,6 +697,6 @@ convert_thread.start()
 convert_thread.join() # ends the convert thread
 delete_created_dir(audio_path) # deletes the Wav directory once it is no longer needed
 total_seconds = find_total_seconds(start_time) # get the total number of seconds the entire application run took 
-current_step += 1 #  the final step of the application
+progress_step(1)
 progress_bar_thread.join() # ends the progress bar thread
 store_rate(file_size, total_seconds) # stores the total seconds of the run in the rates.json file
