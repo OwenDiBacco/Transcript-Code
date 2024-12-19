@@ -28,7 +28,7 @@ git clone https://github.com//OwenDiBacco/Transcript-Code.git
 pip install -r requirements.txt
 ```
 
-3. Get a Gemini API Key
+3. Obtain a Gemini API Key
 
    a). click on this link: https://aistudio.google.com/<br>
    b). click on 'get api key' button, then the 'create api key' button<br>
