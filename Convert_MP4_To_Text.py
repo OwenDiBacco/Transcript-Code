@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from pydub.silence import split_on_silence
 from concurrent.futures import ThreadPoolExecutor
 
+
 class ProgressBarApp: # Progress bar needs to be in this file, to make changes to the root window
     def __init__(self, root):
         self.root = root
@@ -207,7 +208,7 @@ def find_total_seconds(start_time):
     return (datetime.now() - start_time).total_seconds()
 
 
-def delete_created_files(delete_path):
+def delete_file(delete_path):
     os.remove(delete_path)
     
 
@@ -219,12 +220,7 @@ def delete_created_dir(delete_path):
 Creates an AI generated worksheet based off Gemini's response
 '''
 def write_AI_response(response, file_name, directories):
-    if directories is not None:
-        ai_response_folder = os.path.join(root_path, directories, ai_script_name)
-
-    else:
-        ai_response_folder = os.path.join(root_path, ai_script_name)
-
+    ai_response_folder = os.path.join(root_path, get_directories(directories), ai_script_name)
     if not os.path.exists(ai_response_folder):
         os.makedirs(ai_response_folder) # if the directory doesn't exist, create one 
     
@@ -260,52 +256,46 @@ def contains_text_files(directory_path):
     return False
 
 
+'''
+Just for identification of instance, doesn't really matter if they are all sequential
+'''
 def find_current_output_instance():
     files = os.listdir(output_folder)
-    iteration = 1
-    while True:
-        found = False
-        for file in files:
-            if str(iteration) in file: 
-                iteration += 1
-                found = True
+    return len(files) + 1
 
-        if found:
-            return iteration 
-
-    
 '''
 Combines all the text files in a directory into one text file
 '''
-def combine_text_files(folder_path, output_file_name):
-    output_file = os.path.join(folder_path, output_file_name + ".txt") # defines a varaible that contains the full path for the new text file
-    if contains_text_files(folder_path): # checks if the directory contains text files 
-        recorded = []
-        with open(output_file, 'w') as outfile: # creates and opens the new text file to write in 
-            number_of_files = 0
-            for file in os.listdir(folder_path): # lists all the files in the directory 
-                if file.endswith('.txt'): # checks if the file is a text file
-                    number_of_files += 1
+def combine_text_files(text_folder_path, output_file_name):
+    def write_content_to_text_file(file_iterations, recorded):
+        for filename in os.listdir(text_folder_path): # lists all the files from the folder path
+            if filename.endswith(".txt") and str(file_iterations) in filename: # file is a text file and is next in the iteration
+                recorded.append(filename) # adds the file to the array of recored files
+                file_path = os.path.join(text_folder_path, filename) # creates the entire file path so the os system can recognize it
+                with open(file_path, 'r') as infile: # reads the text file and writes it to the combine text file
+                    outfile.write(f'Section: {filename}')
+                    outfile.write("\n")
+                    outfile.write("\n")
+                    outfile.write(infile.read())
+                    outfile.write("\n")  
+                    outfile.write("\n")
+        
+        return recorded
 
-            file_iterations = -1
-            while len(recorded) < number_of_files -1: # while the text files accounted for is less than the total
-                file_iterations += 1
-                if len(str(file_iterations)) < 1: # formats monograms to prepend a 0 to the front as a string 
-                    file_iterations = "0" + file_iterations
+    if os.path.exists(text_folder_path):
+        if contains_text_files(text_folder_path): # checks if the directory contains text files 
+            recorded = []
+            number_of_files = find_number_of_text_files(text_folder_path)
+            output_text_file = os.path.join(text_folder_path, output_file_name + ".txt") 
+            with open(output_text_file, 'w') as outfile: # creates and opens the new text file to write in 
+                file_iterations = -1
+                while len(recorded) < number_of_files -1: # while the text files accounted for is less than the total
+                    file_iterations += 1
+                    if len(str(file_iterations)) < 10: # formats monograms to prepend a 0 to the front as a string 
+                        str_file_iterations = "0" + str(file_iterations)
+                        recorded = write_content_to_text_file(str_file_iterations, recorded)
 
-                for filename in os.listdir(folder_path): # lists all the files from the folder path
-                    if filename.endswith(".txt") and str(file_iterations) in filename: # file is a text file and is next in the iteration
-                        recorded.append(filename) # adds the file to the array of recored files
-                        file_path = os.path.join(folder_path, filename) # creates the entire file path so the os system can recognize it
-                        with open(file_path, 'r') as infile: # reads the text file and writes it to the combine text file
-                            outfile.write(f'Section: {filename}')
-                            outfile.write("\n")
-                            outfile.write("\n")
-                            outfile.write(infile.read())
-                            outfile.write("\n")  
-                            outfile.write("\n")
-
-        return output_file # returns the text file that contains all the text files
+            return output_text_file # returns the text file that contains all the text files
     
     else:
         return None # returns nothing if there are no text files in the directory
@@ -313,18 +303,10 @@ def combine_text_files(folder_path, output_file_name):
 
 def write_text(text, folders, file_name):
     file_names = file_name.split('.')
-    if file_names[0].isdigit():
-        if int(file_names[0]) < 10:
-            file_name = f'0{file_names[0]}. {file_names[1]}'
-        else:
-            file_name = f'{file_names[0]}. {file_names[1]}'
+    if file_names[0].isdigit(): # if the files are numbered
+        file_name = f'0{file_names[0]}. {file_names[1]}' if int(file_names[0]) < 10 else f'{file_names[0]}. {file_names[1]}'
 
-    if folders is not None:
-        text_file_path = os.path.join(text_path, folders)
-    
-    else:
-        text_file_path = text_path
-
+    text_file_path = os.path.join(text_path, get_directories(folders))
     os.makedirs(text_file_path, exist_ok=True)
     with open(os.path.join(text_file_path, file_name + ".txt"), "w") as txt_file:
         txt_file.write(text)
@@ -338,14 +320,12 @@ Converts an mp4 file to a wav file
 def convert_mp4_to_wav(file_path, folders):
     filename = os.path.splitext(os.path.basename(file_path))[0]
     video = mp.VideoFileClip(file_path) # loading a video to declare it as a variable 
-    output_wav_path = audio_path
-    if folders is not None:
-        output_wav_path = os.path.join(output_wav_path, folders) 
-
+    output_wav_path = os.path.join(audio_path, get_directories(folders)) 
     os.makedirs(output_wav_path, exist_ok=True) # creates output wav path
     output_wav_path = os.path.join(output_wav_path, filename + '.wav')
     video.audio.write_audiofile(output_wav_path) # stores the wav file at the defined location
     return filename, output_wav_path
+
 
 '''
 Converts a wav file to a text file
@@ -361,11 +341,12 @@ def convert_wav_to_text(filename, output_wav_path):
     except sr.exceptions.RequestError as e: # if the wav file is too long to be processed; bad request
         text = split_and_convert_wav(output_wav_path, filename) # splits the wav file into chucks to recognize it  
 
-    delete_created_files(output_wav_path) # deletes the wav file because it is no longer needed and wav files take up too much memory 
+    delete_file(output_wav_path) # deletes the wav file because it is no longer needed and wav files take up too much memory 
     return text
 
 '''
 splits the wav file into chucks in order to convert it to text
+takes a lot longer to process, so shouldn't be used unless it can't be processed the conventional way
 '''
 def split_and_convert_wav(wav_path, filename):
     split_audio_folder = f"{root_path}\\Wav\\Split\\" # This is where the split files will be located 
@@ -387,7 +368,7 @@ def split_and_convert_wav(wav_path, filename):
                 try:
                     text = recognizer.recognize_google(audio_chunk)
                     chunk_text.append(text)
-                except sr.UnknownValueError:
+                except sr.UnknownValueError: # audio not recognizable
                     pass
                 
     final_text = ''.join(chunk_text)
@@ -395,41 +376,46 @@ def split_and_convert_wav(wav_path, filename):
 
 
 def document_AI_response(combined_text_file, directories):
-    if combined_text_file != None and Select_Zip_File_GUI.checkbox_checked: # checks if the user checked the box for AI worksheet creation
-        content = ''
-        with open(combined_text_file, 'r') as file:
-            content = file.read() + " /n" # reads the content from the combined text file
-
-        with open('prompt.txt', 'r') as file:
-            content += file.read() # reads in the prompt from prompt.txt to input into Gemini
-
+    if combined_text_file != None and Select_Zip_File_GUI.checkbox_checked: # checks if the user checked the box for AI worksheet creation and there is a combined text file
+        content = read_file(combined_text_file)
+        content += read_file('prompt.txt') # reads in the prompt from prompt.txt to input into Gemini
         response = Create_Notes_From_AI.prompt_genai(content) # records the response from the Gemini prompt
-        if directories is not None:
-            ai_file_name = os.path.basename(os.path.normpath(directories))
-
-        else: 
-            ai_file_name = 'ai response file'
-
+        ai_file_name = os.path.basename(os.path.normpath(directories)) if directories is not None else 'ai response file'
         section_name = ai_file_name + ' AI'
         write_AI_response(response, section_name, directories) # adds the complete worksheet to the AI output directory 
 
 
+def read_file(file):
+    with open(file, 'r') as file:
+        return file.read()
+        
+
+'''
+Processes all the files in the single directory
+'''
 def process_directory(directory_path, directories):
-    files_to_procress_dict = search_output_for_preprocessed_files(directory_path, output_folder)['files']  
-    if files_to_procress_dict:
-        text_files_dict, files_to_procress_dict = get_text_files(files_to_procress_dict)
-        if text_files_dict:
-            text_files_paths = [d['file_path'] for d in text_files_dict]
-            if directories is not None:
-                output_txt_directory = os.path.join(root_path, text_directory_name, directories)
+    def process_preprocessed_text_files(files_to_procress_dicts):
+        text_file_dicts, files_to_procress_dicts = get_text_files(files_to_procress_dicts)
+        text_files_paths = get_file_paths(text_file_dicts)        
+        output_txt_directory = os.path.join(root_path, text_directory_name, get_directories(directories))
+        copy_files_to_directory(text_files_paths, output_txt_directory)
+        return files_to_procress_dicts
 
-            else:
-                output_txt_directory = os.path.join(root_path, text_directory_name)
-
-            copy_files_to_directory(text_files_paths, output_txt_directory)
-
+    files_to_procress_dict = search_output_for_preprocessed_files(directory_path, output_folder)['files'] # gets the files from the files_to_be_processed dictionary
+    files_to_procress_dict = process_preprocessed_text_files(files_to_procress_dict)
     combined_text_file = create_threads_for_files_in_directory(files_to_procress_dict, directories) 
     document_AI_response(combined_text_file, directories)
+
+
+def get_file_paths(file_dicts):
+    return [d['file_path'] for d in file_dicts] if file_dicts else []
+
+
+def get_directories(directories):
+    if directories is not None:
+        return directories
+
+    return ''
 
 
 def get_text_files(files):
@@ -444,38 +430,39 @@ def get_text_files(files):
     return txt_files, files_to_process
 
 
+'''
+Searches each sub directory in each directory
+'''
 def process_extracted_content(directory_path, directories): 
     process_directory(directory_path, directories)
     for root, dirs, _ in os.walk(directory_path):
         for dir in dirs:
             sub_directory_path = os.path.join(root, dir)
-            if directories is not None:
-                sub_directories = os.path.join(directories, dir)
-            
-            else:
-                sub_directories = dir
-
-            process_directory(sub_directory_path, sub_directories)
+            sub_directories = os.path.join(get_directories(directories), dir)
+            process_extracted_content(sub_directory_path, sub_directories)
 
 
 '''
 Converts an mp4 file to a wav file, then converts the wav file to a text file
 '''
-def process_file(file, directories): # only mp4s and wavs are in this function
-    global current_step
+def process_file(file, directories): # only mp4s and wavs are in this function    
     
     if file['file_type'] == 'mp4': # the path is included if it comes from the preprocessed function 
         mp4_file_path = file['file_path']
         file_name, wav_file_path = convert_mp4_to_wav(mp4_file_path, directories) 
 
-    else: 
+    else: # is a wav file
         wav_file_path = file['file_path']
-
+        
+    file_name = os.path.basename(wav_file_path)
     text = convert_wav_to_text(file_name, wav_file_path) 
     write_text(text, directories, file_name)
     progress_step(1) # the file is completly processed
 
 
+'''
+Creates a thread for each file to process it
+'''
 def create_threads_for_files_in_directory(files_to_process, directories): # creates a thread for each mp4 in a folder to be processed
     def wrapper(file_to_process): # a wrapper is used to encapsulate other components
         return process_file(file_to_process, directories) # returns the function with predetermined parameters
@@ -483,20 +470,9 @@ def create_threads_for_files_in_directory(files_to_process, directories): # crea
     with ThreadPoolExecutor() as executor: # ThreadPoolExecutor provides ways to manage multiple threads concurrently
         list(executor.map(wrapper, files_to_process)) # creates a list of concurrent threads
     
-    if directories is not None:
-        output_text_file_path = os.path.join(root_path, directories, text_directory_name)
-
-    else:
-
-        output_text_file_path = os.path.join(root_path, text_directory_name)
-        
-    combined_text_file_name = 'all'
-    if os.path.exists(output_text_file_path):
-        combined_file_path = combine_text_files(output_text_file_path, combined_text_file_name)
-
-    else:
-        combined_file_path = None
-
+    output_text_path = os.path.join(root_path, get_directories(directories), text_directory_name)
+    combined_text_file_name = 'all' # the name of the file with the combined transcripts
+    combined_file_path = combine_text_files(output_text_path, combined_text_file_name)
     return combined_file_path
 
 
@@ -518,6 +494,14 @@ def find_total_files(folder):
     return mp4_count
 
 
+def find_number_of_text_files(folder_path):
+    number_of_files = 0
+    for file in os.listdir(folder_path): # lists all the files in the directory 
+        if file.endswith('.txt'): # checks if the file is a text file
+            number_of_files += 1
+    
+    return number_of_files
+
 def progress_step(increment):
     global current_step
     current_step += increment
@@ -533,61 +517,58 @@ def format_seconds(seconds):
 
 
 def search_output_for_preprocessed_files(video_path, output_folder):
-    def compare_arrays(video_files_array, output_files_array):
-        video_files_array_copy = video_files_array[:]
-        output_files_array_copy = output_files_array[:]
-        
-        files_to_process = []
-        
-        for extracted_zip_element in video_files_array_copy: 
-            extracted_element_not_processed = True 
-            for output_file_version in output_files_array_copy:
-                if output_file_version['file_name'] == extracted_zip_element['file_name']:
-                    files_to_process.append(output_file_version)
-                    extracted_element_not_processed = False
+    def compare_files(video_files_array, output_files_array):
+        files_to_process = []  # List to store files to process
+    
+        for video_file in video_files_array:
+            match_found = next((output_file for output_file in output_files_array 
+                                if output_file['file_name'] == video_file['file_name']), None)
+            
+            files_to_process.append(match_found or video_file)
 
-            if extracted_element_not_processed:
-                files_to_process.append(extracted_zip_element)
-        
         return files_to_process
 
 
     def find_most_processed_version(files):
-        files_array_copy = files[:]
-        files_array_copy.sort(key=itemgetter('file_name'))
-        file_versions = [list(group) for _, group in groupby(files_array_copy, key=itemgetter('file_name'))]
-        most_preprocessed_file_versions = []
-        for file in file_versions:
-            appended = False
+        def group_files_together(array_of_files):
+            array_of_files.sort(key=itemgetter('file_name'))
+            file_versions = [list(group) for _, group in groupby(array_of_files, key=itemgetter('file_name'))]
+            return file_versions
+
+        def get_most_processed_version(file):
             file_types = ['txt', 'wav', 'mp4']
             for file_type in file_types:
                 for version in file:
-                    if version['file_type'] == file_type and not appended:
-                        most_preprocessed_file_versions.append(version)
-                        appended = True
+                    if version['file_type'] == file_type:
+                        return version
+            return
+                    
+        grouped_file_versions = group_files_together(files)
+        most_processed_versions_of_files = []
+
+        for file_versions in grouped_file_versions:
+            most_processed_versions_of_files.append(get_most_processed_version(file_versions))
                         
+        return most_processed_versions_of_files
 
-        return most_preprocessed_file_versions
 
-
-    progress_cache = {
-        'directory-name': None,
+    files_to_be_processed = {
         'length': float('inf'),
         'files': []
     }
 
-    video_files = find_all_files_in_directory(video_path) # find all the files in the specific directory
-    all_output_files = find_all_files(output_folder)
-    most_processed_output_versions = find_most_processed_version(all_output_files)
-    files_left_to_process = compare_arrays(video_files, most_processed_output_versions) # limits the files to process to only the ones that need totally processed or are partially processed
-    length = len(files_left_to_process) # number of files to process
-    if length < progress_cache.get('length'):
-        progress_cache['directory-name'] = 'filenem '
-        progress_cache['files'] = files_left_to_process
-        progress_cache['length'] = length
+    video_files = find_all_files_in_directory(video_path) # find all the files in a single directory
+    all_output_files = find_all_files(output_folder) # finds all the files from every directory
+    most_processed_output_file_versions = find_most_processed_version(all_output_files)
+    files_associated_to_extracted_files = compare_files(video_files, most_processed_output_file_versions) # limits the files to process to only the ones that need totally processed or are partially processed
+    
+    length = len(files_associated_to_extracted_files) # number of files to process
+    if length < files_to_be_processed.get('length'):
+        files_to_be_processed['files'] = files_associated_to_extracted_files
+        files_to_be_processed['length'] = length
 
 
-    return progress_cache
+    return files_to_be_processed
 
 
 def find_all_files_in_directory(directory_path):
@@ -637,15 +618,25 @@ def create_file_dict(file, directory):
 
     return file_elements
 
-
+'''
+Takes the file to copy and the directory to copy to and copies all the files into the right directory
+'''
 def copy_files_to_directory(txt_files, current_output_instance_txt_directory): 
     # shutil.copytree(output_instance, current_output_instance, dirs_exist_ok=True) 
+    # copies the entire directory 
     for file in txt_files:
         shutil.copy(file, current_output_instance_txt_directory)
         progress_step(1) # the file is completly processed
 
-average_rate = calculate_average_rate() # takes average rate (rate = total processed bytes / seconds the application took) of last 10 runs
-start_time = datetime.now() 
+
+def find_predicted_run_time(file_size, average_rate):
+    return file_size * average_rate if average_rate else None
+
+
+# defines the file paths for the current run's output directory as global variables
+
+# removed time predicted functionality because it is too complicated to calculate with the threading, and the addition of preprocessed files
+start_time = datetime.now() # get the time the program started to compare against the time it ended
 
 zip_file_path = Select_Zip_File_GUI.zip_path # gets the path to the zip files from the starting GUI file 
 output_folder = f'.\\Output' # the Output directory all the output results will be located
@@ -673,22 +664,18 @@ if not os.path.exists(text_path):
 
 ai_script_name = 'AI Script'
 
-with zipfile.ZipFile(zip_file_path, 'r') as zip_ref: # extracts the zip-file
+# extract the zip-file
+with zipfile.ZipFile(zip_file_path, 'r') as zip_ref: 
     zip_ref.extractall(video_path)
 
-average_rate = calculate_average_rate() # rate of seconds per byte
+# used to calculate the predicted time, no longer used; too complicated
+average_rate = calculate_average_rate() # takes average rate (rate = total processed bytes / seconds the application took) of last 10 runs
 file_size = find_zip_memory(video_path) # get the size of the toal files being processsed (size in bytes)
+predicted_time = find_predicted_run_time(file_size, average_rate) # the estimated time the program will take
+predicted_time_formatted = format_seconds(predicted_time) if predicted_time is not None else None
 
-predicted_time = file_size * average_rate if average_rate else None # the estimated time the program will take
-
+# defines the step the program is on; used for the progress bar
 current_step = 0
-
-if predicted_time != None:
-    predicted_time_formatted = format_seconds(predicted_time) # formats the predicted time from seconds to Minute:Seconds
-
-else:
-    predicted_time_formatted = None
-
 total_steps = (find_total_files(video_path) + 1) # find the number of mp4 files, plus the final step (recording the time duration)
 progress_bar_thread = threading.Thread(target=run_progress_bar) # thread which runs the progress bar
 convert_thread = threading.Thread(target=process_extracted_content, args=(video_path, None)) # this thread converts mp4s, start the process with the extracted zip
@@ -696,7 +683,7 @@ progress_bar_thread.start()
 convert_thread.start()
 convert_thread.join() # ends the convert thread
 delete_created_dir(audio_path) # deletes the Wav directory once it is no longer needed
-total_seconds = find_total_seconds(start_time) # get the total number of seconds the entire application run took 
-progress_step(1)
+progress_step(1) # the final step of the program
 progress_bar_thread.join() # ends the progress bar thread
+total_seconds = find_total_seconds(start_time) # get the total number of seconds the entire application run took 
 store_rate(file_size, total_seconds) # stores the total seconds of the run in the rates.json file
